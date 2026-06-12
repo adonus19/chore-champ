@@ -1,0 +1,353 @@
+<main class="dashboard-page">
+  @if (reviewFeedback(); as feedback) {
+    <section
+      class="feedback-banner"
+      [class.feedback-banner--error]="feedback.kind === 'error'"
+      [class.feedback-banner--warning]="feedback.kind === 'warning'"
+      [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <strong>
+        {{ feedback.kind === 'error' ? 'Review update issue:' : feedback.kind === 'warning' ? 'Review heads up:' : 'Review updated:' }}
+      </strong>
+      {{ feedback.text }}
+    </section>
+  }
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Family Quest Board</p>
+      <h1>{{ familyName() }}</h1>
+      <p class="hero-message">{{ heroMessage() }}</p>
+
+      <div class="hero-actions">
+        <a class="hero-action" routerLink="/parent/quests">Create a quest</a>
+        <a class="hero-action hero-action--secondary" routerLink="/parent/goals">Manage goals</a>
+        @if (showParentSelfBoard()) {
+          <a class="hero-action hero-action--secondary" routerLink="/parent/me">Open my board</a>
+        }
+        <a class="hero-action hero-action--secondary" routerLink="/parent/children">Manage kids</a>
+        <a class="hero-action hero-action--secondary" routerLink="/parent/privileges">Privilege settings</a>
+      </div>
+    </div>
+
+    <aside class="mode-spotlight" aria-label="Current seasonal mode">
+      <p class="mode-spotlight__label">Current mode</p>
+      <h2>{{ familySnapshot().currentMode.name }}</h2>
+      <p>{{ familySnapshot().currentMode.description }}</p>
+      <p class="mode-rule">{{ familySnapshot().currentMode.defaultScreenTimeRule }}</p>
+    </aside>
+  </section>
+
+  <section class="stats-grid" aria-label="Family progress summary">
+    @for (stat of headlineStats(); track stat.label) {
+      <article class="stat-card">
+        <p class="stat-card__label">{{ stat.label }}</p>
+        <p class="stat-card__value">{{ stat.value }}</p>
+        <p class="stat-card__hint">{{ stat.hint }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="dashboard-layout">
+    <section class="main-column">
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Today at a glance</p>
+            <h2>Kid status cards</h2>
+          </div>
+          <p class="panel-copy">Each card shows today's progress, next focus, and whether privileges are ready to open.</p>
+        </div>
+
+        <div class="child-grid">
+          @for (summary of childSummaries(); track trackByChild($index, summary)) {
+            <article class="child-card" [style.--card-accent]="summary.child.themeColor">
+              <header class="child-card__header">
+                <div class="child-badge">
+                  <div class="child-badge__avatar" [style.background]="summary.child.themeColor">
+                    {{ summary.child.avatar }}
+                  </div>
+                  <div>
+                    <h3>{{ summary.child.name }}</h3>
+                    <p>Level {{ summary.child.level }} adventurer · Age {{ summary.child.age }}</p>
+                  </div>
+                </div>
+
+                <p
+                  class="status-pill"
+                  [class.status-pill--ready]="summary.screenTimeUnlocked"
+                  [class.status-pill--pending]="!summary.screenTimeUnlocked && summary.pendingApprovals > 0"
+                >
+                  {{ summary.statusLabel }}
+                </p>
+              </header>
+
+              <div
+                class="progress-shell"
+                role="progressbar"
+                [attr.aria-label]="summary.child.name + ' required quest progress'"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="summary.progress"
+              >
+                <div class="progress-fill" [style.width.%]="summary.progress"></div>
+              </div>
+
+              <div class="child-metrics">
+                <div>
+                  <span>Required quests</span>
+                  <strong>{{ summary.completedRequired }}/{{ summary.totalRequired }}</strong>
+                </div>
+                <div>
+                  <span>Points today</span>
+                  <strong>{{ summary.pointsToday }}</strong>
+                </div>
+                <div>
+                  <span>Streak</span>
+                  <strong>{{ summary.child.streakDays }} days</strong>
+                </div>
+              </div>
+
+              <div class="child-card__details">
+                <p class="momentum-copy">{{ summary.momentumLabel }}</p>
+                <p><strong>Next up:</strong> {{ summary.nextFocus }}</p>
+                <p><strong>Reading now:</strong> {{ summary.child.currentBook }}</p>
+                <p><strong>Life skill:</strong> {{ summary.child.currentLifeSkill }}</p>
+              </div>
+
+              <div class="child-card__links">
+                <a class="child-card__link" [routerLink]="['/children', summary.child.id, 'today']">Open today's board</a>
+                <a class="child-card__link child-card__link--secondary" [routerLink]="['/children', summary.child.id, 'profile']">
+                  Open profile
+                </a>
+              </div>
+            </article>
+          }
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Seasonal rhythm</p>
+            <h2>Mode switcher</h2>
+          </div>
+          <p class="panel-copy">Try different family rhythms without losing history or creating shame-heavy resets.</p>
+        </div>
+
+        <div class="mode-chip-list" role="list" aria-label="Seasonal modes">
+          @for (mode of seasonalModes(); track mode.id) {
+            <button
+              type="button"
+              class="mode-chip"
+              [class.mode-chip--active]="mode.id === familySnapshot().currentMode.id"
+              [disabled]="pendingModeId() === mode.id"
+              (click)="switchMode(mode.id)"
+            >
+              <span>{{ pendingModeId() === mode.id ? 'Saving...' : mode.name }}</span>
+              <small>{{ mode.intensity }}</small>
+            </button>
+          }
+        </div>
+
+        <div class="mode-minimums">
+          @for (minimum of currentModeChecklist(); track minimum.label) {
+            <div class="minimum-card">
+              <span>{{ minimum.label }}</span>
+              <strong>{{ minimum.target }}</strong>
+            </div>
+          }
+        </div>
+
+        <a class="panel-link" routerLink="/parent/modes">Open mode manager</a>
+      </article>
+    </section>
+
+    <aside class="side-column">
+      <article class="panel panel--compact priority-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Reward review</p>
+            <h2>Reward requests</h2>
+          </div>
+          <p class="panel-copy">Handle reward-store requests first so kids get a fast answer while points are still reserved.</p>
+        </div>
+
+        @if (rewardRequestQueue().length > 0) {
+          <div class="approval-list">
+            @for (item of rewardRequestQueue(); track item.redemption.id) {
+              <article class="approval-card approval-card--reward">
+                <div>
+                  <p class="approval-card__child">{{ item.child.name }}</p>
+                  <h3>{{ item.reward.title }}</h3>
+                  <p class="approval-card__meta">
+                    {{ item.rewardTypeLabel }} · {{ item.requestedLabel }} · {{ item.redemption.pointCost }} points reserved
+                  </p>
+                  <p>{{ item.redemption.note }}</p>
+                  <p class="approval-card__impact">{{ item.impactLabel }}</p>
+                </div>
+
+                <div class="approval-actions">
+                  <button
+                    type="button"
+                    class="action-button action-button--approve"
+                    [disabled]="pendingRewardReviewId() === item.redemption.id"
+                    (click)="approveRewardRequest(item.redemption.id)"
+                  >
+                    {{ pendingRewardReviewId() === item.redemption.id ? 'Saving...' : 'Approve reward' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button action-button--refund"
+                    [disabled]="pendingRewardReviewId() === item.redemption.id"
+                    (click)="declineRewardRequest(item.redemption.id)"
+                  >
+                    {{ pendingRewardReviewId() === item.redemption.id ? 'Saving...' : 'Decline and refund' }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>No reward requests waiting</h3>
+            <p>When a child requests a parent-reviewed reward, it will land here above the quest approval lane.</p>
+          </div>
+        }
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Parent review</p>
+            <h2>Quest approvals</h2>
+          </div>
+          <p class="panel-copy">Quest checks stay just below rewards so the parent dashboard mirrors real daily priorities.</p>
+        </div>
+
+        @if (pendingApprovals().length > 0) {
+          <div class="approval-list">
+            @for (item of pendingApprovals(); track item.completion.id) {
+              <article class="approval-card">
+                <div>
+                  <p class="approval-card__child">{{ item.child.name }}</p>
+                  <h3>{{ item.quest.title }}</h3>
+                  <p>{{ item.completion.notes }}</p>
+                </div>
+
+                <div class="approval-actions">
+                  <button
+                    type="button"
+                    class="action-button action-button--approve"
+                    [disabled]="pendingReviewId() === item.completion.id"
+                    (click)="approveCompletion(item.completion.id)"
+                  >
+                    {{ pendingReviewId() === item.completion.id ? 'Saving...' : 'Approve' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button action-button--retry"
+                    [disabled]="pendingReviewId() === item.completion.id"
+                    (click)="rejectCompletion(item.completion.id)"
+                  >
+                    {{ pendingReviewId() === item.completion.id ? 'Saving...' : 'Try again' }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>All clear for now</h3>
+            <p>There are no quest reports waiting for review. That usually means the family rhythm is humming.</p>
+          </div>
+        }
+      </article>
+
+      <article class="panel panel--compact journal-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Daily win</p>
+            <h2>Journal replies</h2>
+          </div>
+          <p class="panel-copy">A fast heart or short note helps the journal feel seen without turning it into one more heavy task.</p>
+        </div>
+
+        @if (journalSyncError()) {
+          <div class="empty-state empty-state--warning">
+            <h3>Journal sync needs attention</h3>
+            <p>{{ journalSyncError() }}</p>
+          </div>
+        } @else if (journalResponseQueue().length > 0) {
+          <div class="journal-response-list">
+            @for (item of journalResponseQueue(); track item.entry.id) {
+              <article class="journal-card">
+                <div class="journal-card__top">
+                  <div>
+                    <p class="approval-card__child">{{ item.child.name }}</p>
+                    <h3>{{ item.dateLabel }} reflection</h3>
+                  </div>
+
+                  <a class="journal-card__link" [routerLink]="['/children', item.child.id, 'journal']">Open journal</a>
+                </div>
+
+                <div class="journal-card__copy">
+                  <p><strong>Accomplished:</strong> {{ item.accomplishedPreview }}</p>
+                  <p><strong>Proud of:</strong> {{ item.proudOfPreview }}</p>
+                </div>
+
+                <div class="journal-actions">
+                  <button
+                    type="button"
+                    class="action-button action-button--heart"
+                    [disabled]="pendingJournalResponseId() === item.entry.id"
+                    (click)="respondToJournalEntry(item.entry.id, 'Heart', 'Proud of you for this win today.')"
+                  >
+                    {{ pendingJournalResponseId() === item.entry.id ? 'Saving...' : 'Heart + proud note' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="action-button action-button--star"
+                    [disabled]="pendingJournalResponseId() === item.entry.id"
+                    (click)="respondToJournalEntry(item.entry.id, 'Star', 'Strong follow-through today. Keep building this rhythm.')"
+                  >
+                    {{ pendingJournalResponseId() === item.entry.id ? 'Saving...' : 'Star + strong note' }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>No journal replies waiting</h3>
+            <p>New child reflections without a parent response will land here for a quick, encouraging follow-up.</p>
+          </div>
+        }
+      </article>
+
+      <article class="panel panel--compact privilege-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Privilege reminder</p>
+            <h2>{{ privilegeRule()?.title ?? 'Parent-guided screen time' }}</h2>
+          </div>
+        </div>
+
+        @if (privilegeRule(); as rule) {
+          <ul class="rule-list">
+            @for (requirement of rule.requirements; track requirement) {
+              <li>{{ requirement }}</li>
+            }
+          </ul>
+        } @else {
+          <p class="panel-copy">
+            This mode is currently using the seasonal screen-time guidance without a separate screen-time privilege rule.
+          </p>
+        }
+
+        <a class="panel-link" routerLink="/parent/privileges">Open privilege settings</a>
+      </article>
+    </aside>
+  </section>
+</main>

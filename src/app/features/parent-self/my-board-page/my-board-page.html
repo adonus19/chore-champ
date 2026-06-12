@@ -1,0 +1,184 @@
+<main class="my-board-page">
+  <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+  <section class="hero-card">
+    <p class="eyebrow">Parent personal board</p>
+    <h1>{{ parentName() }}'s goals & quests</h1>
+    <p class="hero-message">
+      Set growth goals and quests for yourself, log your own progress, and check off what you finish. These are
+      personal to you — kids and co-parents each keep their own board.
+    </p>
+  </section>
+
+  @if (!usesParentSelfBoard()) {
+    <section class="guard-note" role="status">
+      <strong>Sign in with a real parent account.</strong>
+      Personal goals and quests are saved to your Firestore household, so they need a signed-in parent account
+      rather than the demo lane.
+    </section>
+  } @else {
+    <section class="stats-grid" aria-label="Personal board summary">
+      @for (stat of stats(); track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+        </article>
+      }
+    </section>
+
+    @if (feedback(); as note) {
+      <section class="feedback-banner" [class.feedback-banner--error]="note.kind === 'error'" role="status" aria-live="polite">
+        {{ note.text }}
+      </section>
+    }
+
+    @if (actionError()) {
+      <section class="feedback-banner feedback-banner--error" role="alert" aria-live="polite">{{ actionError() }}</section>
+    }
+
+    <section class="board-layout">
+      <article class="panel">
+        <div class="panel-heading">
+          <p class="eyebrow">My goals</p>
+          <h2>Track a personal goal</h2>
+        </div>
+
+        <form class="board-form" (submit)="onAddGoal(); $event.preventDefault()">
+          <div class="field-grid">
+            <label class="field field--full">
+              <span class="field__label">Goal title</span>
+              <input [formField]="goalForm.title" placeholder="Run a 5k" />
+              @if (goalForm.title().touched() && goalForm.title().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.title().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Target</span>
+              <input type="number" step="1" [formField]="goalForm.target" />
+              @if (goalForm.target().touched() && goalForm.target().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.target().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Unit</span>
+              <input [formField]="goalForm.unit" placeholder="miles" />
+              @if (goalForm.unit().touched() && goalForm.unit().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.unit().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Category</span>
+              <select [formField]="goalForm.category">
+                @for (option of CATEGORY_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+          </div>
+
+          <button type="submit" class="primary-button" [disabled]="goalForm().invalid() || goalForm().pending()">
+            Add goal to my board
+          </button>
+        </form>
+
+        <div class="card-list">
+          @for (item of goals(); track item.goal.id) {
+            <article class="goal-card" [class.goal-card--complete]="item.complete">
+              <div class="goal-card__top">
+                <h3>{{ item.goal.title }}</h3>
+                <button
+                  type="button"
+                  class="inline-button"
+                  [disabled]="pendingGoalId() === item.goal.id"
+                  (click)="deleteGoal(item.goal.id, item.goal.title)"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <p class="goal-card__meta">
+                {{ item.goal.current }} / {{ item.goal.target }} {{ item.goal.unit }}
+                @if (item.complete) {
+                  · Complete
+                } @else {
+                  · {{ item.remaining }} to go
+                }
+              </p>
+
+              <div class="progress-track" role="progressbar" [attr.aria-valuenow]="item.progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-track__fill" [style.width.%]="item.progress"></div>
+              </div>
+
+              @if (!item.complete) {
+                <div class="log-row">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    [value]="progressAmount(item.goal.id)"
+                    (input)="setProgressAmount(item.goal.id, $any($event.target).value)"
+                    aria-label="Progress amount to log"
+                  />
+                  <button
+                    type="button"
+                    class="secondary-button"
+                    [disabled]="pendingGoalId() === item.goal.id"
+                    (click)="logProgress(item.goal.id)"
+                  >
+                    Log progress
+                  </button>
+                </div>
+              }
+            </article>
+          } @empty {
+            <article class="empty-card">
+              <p>No personal goals yet. Add one above, or use the parent goals page and pick “Myself” as the target.</p>
+            </article>
+          }
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <p class="eyebrow">My quests</p>
+          <h2>Quests assigned to me</h2>
+        </div>
+
+        <p class="panel-copy">
+          Assign a quest to yourself from the
+          <a class="inline-link" routerLink="/parent/quests">parent quest manager</a>, then check it off here.
+          These are self-certified — no approval step.
+        </p>
+
+        <div class="card-list">
+          @for (item of quests(); track item.quest.id) {
+            <article class="quest-card" [class.quest-card--done]="item.done">
+              <div class="quest-card__body">
+                <h3>{{ item.quest.title }}</h3>
+                <p>{{ item.quest.description }}</p>
+                <p class="quest-card__meta">{{ item.quest.points }} pts · {{ item.quest.recurrence }}</p>
+              </div>
+
+              <button
+                type="button"
+                class="toggle-button"
+                [class.toggle-button--done]="item.done"
+                [disabled]="pendingQuestId() === item.quest.id"
+                (click)="toggleQuest(item.quest.id, !item.done)"
+              >
+                {{ item.done ? 'Done ✓ (undo)' : 'Mark done' }}
+              </button>
+            </article>
+          } @empty {
+            <article class="empty-card">
+              <p>No quests are assigned to you yet. Open the parent quest manager and add “Myself” as an assignee.</p>
+            </article>
+          }
+        </div>
+      </article>
+    </section>
+  }
+</main>

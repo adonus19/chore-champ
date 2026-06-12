@@ -1,0 +1,359 @@
+<main class="family-access-page">
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">{{ heroContent().eyebrow }}</p>
+      <h1>{{ heroContent().title }}</h1>
+      <p class="hero-message">{{ heroContent().message }}</p>
+    </div>
+
+    <aside class="viewer-panel" [style.--viewer-accent]="activeViewerBadge().themeColor">
+      <p class="viewer-panel__label">Current view</p>
+      <h2>{{ activeViewerBadge().label }}</h2>
+      <p>{{ activeViewerBadge().helper }}</p>
+    </aside>
+  </section>
+
+  @if (actionFeedback(); as feedback) {
+    <section
+      class="feedback-banner"
+      [class.feedback-banner--error]="feedback.kind === 'error'"
+      [class.feedback-banner--warning]="feedback.kind === 'warning'"
+      [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <strong>
+        {{
+          feedback.kind === 'error'
+            ? 'Household switch issue:'
+            : feedback.kind === 'warning'
+              ? 'Household heads up:'
+              : 'Household updated:'
+        }}
+      </strong>
+      {{ feedback.text }}
+    </section>
+  }
+
+  @if (householdAccessSyncError()) {
+    <section class="feedback-banner feedback-banner--warning" role="status" aria-live="polite">
+      <strong>Household sync warning:</strong> {{ householdAccessSyncError() }}
+    </section>
+  }
+
+  @if (viewerSession().kind === 'parent') {
+    <section class="stats-grid" aria-label="Family access summary">
+      @for (stat of launchStats(); track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+  }
+
+  <section class="access-layout">
+    @if (viewerSession().kind !== 'shared') {
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Household lane</p>
+            <h2>{{ householdPanel().title }}</h2>
+          </div>
+          <p class="panel-copy">{{ householdPanel().copy }}</p>
+        </div>
+
+        @if (householdOptions().length) {
+          <div class="household-grid">
+            @for (option of householdOptions(); track option.householdId) {
+              <article class="household-card" [class.household-card--current]="option.isCurrent">
+                <div class="household-card__top">
+                  <div>
+                    <p class="household-card__eyebrow">{{ option.role === 'child' ? 'Child household' : 'Parent household' }}</p>
+                    <h3>{{ option.name }}</h3>
+                  </div>
+
+                  <p
+                    class="status-pill"
+                    [class.status-pill--ready]="option.isCurrent"
+                    [class.status-pill--pending]="!option.isCurrent && !option.selfSwitchAllowed"
+                  >
+                    {{
+                      option.isCurrent
+                        ? 'Current household'
+                        : option.selfSwitchAllowed
+                          ? 'Ready to switch'
+                          : 'Parent controlled'
+                    }}
+                  </p>
+                </div>
+
+                <p class="household-card__copy">
+                  @if (option.isCurrent) {
+                    This is the household the signed-in account is using right now.
+                  } @else if (option.selfSwitchAllowed) {
+                    Switch here when you want this account to reload into this household without signing out.
+                  } @else {
+                    This household is linked, but a parent currently controls when the child can switch here.
+                  }
+                </p>
+
+                @if (!option.isCurrent && option.selfSwitchAllowed) {
+                  <button
+                    type="button"
+                    class="action-button action-button--secondary"
+                    [disabled]="pendingHouseholdId() === option.householdId"
+                    (click)="switchCurrentHousehold(option.householdId)"
+                  >
+                    {{ pendingHouseholdId() === option.householdId ? 'Switching household...' : 'Switch here' }}
+                  </button>
+                }
+              </article>
+            }
+          </div>
+        } @else {
+          <article class="household-card household-card--current">
+            <div class="household-card__top">
+              <div>
+                <p class="household-card__eyebrow">Household access</p>
+                <h3>{{ currentHouseholdLabel() }}</h3>
+              </div>
+
+              <p class="status-pill status-pill--ready">Current household</p>
+            </div>
+
+            <p class="household-card__copy">
+              This signed-in account is currently using its active household. If more linked households are added later,
+              they will appear here without changing this lane.
+            </p>
+          </article>
+        }
+      </article>
+    }
+
+    @if (viewerSession().kind !== 'child') {
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Parent control center</p>
+            <h2>Parent door</h2>
+          </div>
+          <p class="panel-copy">Approvals, planning, seasonal rhythm, and family setup stay together in one predictable lane.</p>
+        </div>
+
+        <article class="parent-card" [style.--parent-accent]="parentProfile().themeColor">
+          <div class="parent-card__header">
+            <div class="parent-card__avatar">{{ parentProfile().avatarUrl }}</div>
+
+            <div>
+              <h3>{{ parentProfile().displayName }}</h3>
+              <p>
+                {{
+                  viewerSession().kind === 'parent'
+                    ? parentQueueLabel()
+                    : 'Sign in to open approvals, planning, and family setup tools.'
+                }}
+              </p>
+            </div>
+          </div>
+
+          <p class="parent-card__copy">{{ parentCardCopy() }}</p>
+
+          <div class="parent-actions">
+            @if (viewerSession().kind === 'parent') {
+              <button type="button" class="action-button action-button--primary" (click)="openFamilyDashboard()">
+                Open family dashboard
+              </button>
+              <button type="button" class="action-button action-button--secondary" (click)="openParentQuests()">
+                Plan quests
+              </button>
+              <button type="button" class="action-button action-button--secondary" (click)="openParentChildren()">
+                Manage kids
+              </button>
+              <button type="button" class="action-button action-button--secondary" (click)="openMyBoard()">
+                My goals & quests
+              </button>
+            } @else {
+              <button type="button" class="action-button action-button--primary" (click)="openFamilyDashboard()">
+                Sign in as parent
+              </button>
+            }
+          </div>
+        </article>
+      </article>
+    }
+
+    <article class="panel">
+      @if (viewerSession().kind === 'child' && activeChildCard(); as card) {
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Child lane</p>
+            <h2>You're signed in as {{ card.child.name }}</h2>
+          </div>
+          <p class="panel-copy">Jump back into today's flow, or switch family member when this turn is done.</p>
+        </div>
+
+        <article class="child-card" [style.--card-accent]="card.child.themeColor">
+          <header class="child-card__header">
+            <div class="child-badge">
+              <div class="child-badge__avatar" [style.background]="card.child.themeColor">
+                {{ card.child.avatar }}
+              </div>
+
+              <div>
+                <h3>{{ card.child.name }}</h3>
+                <p>Level {{ card.child.level }} adventurer · Age {{ card.child.age }}</p>
+              </div>
+            </div>
+
+            <p
+              class="status-pill"
+              [class.status-pill--ready]="card.screenTimeUnlocked"
+              [class.status-pill--pending]="!card.screenTimeUnlocked && card.pendingApprovals > 0"
+            >
+              {{ card.statusLabel }}
+            </p>
+          </header>
+
+          <div
+            class="progress-shell"
+            role="progressbar"
+            [attr.aria-label]="card.child.name + ' required quest progress'"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            [attr.aria-valuenow]="card.progress"
+          >
+            <div class="progress-fill" [style.width.%]="card.progress"></div>
+          </div>
+
+          <div class="child-metrics">
+            <div>
+              <span>Must-do</span>
+              <strong>{{ card.completedRequired }}/{{ card.totalRequired }}</strong>
+            </div>
+            <div>
+              <span>Points</span>
+              <strong>{{ card.child.points }}</strong>
+            </div>
+            <div>
+              <span>Streak</span>
+              <strong>{{ card.child.streakDays }} days</strong>
+            </div>
+          </div>
+
+          <div class="child-card__details">
+            <p>{{ card.momentumLabel }}</p>
+            <p><strong>Reward shop:</strong> {{ card.rewardLabel }}</p>
+            <p><strong>Journal:</strong> {{ card.journalLabel }}</p>
+          </div>
+
+          <div class="child-card__actions">
+            <a class="action-button action-button--primary" [routerLink]="['/children', card.child.id, 'today']">
+              Open today's board
+            </a>
+            <a class="child-card__link" [routerLink]="['/children', card.child.id, 'profile']">Open profile</a>
+            <a class="child-card__link" [routerLink]="['/children', card.child.id, 'rewards']">Reward store</a>
+            <a class="child-card__link" [routerLink]="['/children', card.child.id, 'goals']">Goals</a>
+            <a class="child-card__link" [routerLink]="['/children', card.child.id, 'journal']">Journal</a>
+            <button type="button" class="action-button action-button--secondary" (click)="switchFamilyMember()">
+              Switch family member
+            </button>
+          </div>
+        </article>
+      } @else {
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Kid doors</p>
+            <h2>{{ viewerSession().kind === 'shared' ? 'Sign in as a child' : 'Choose a child board' }}</h2>
+          </div>
+          <p class="panel-copy">
+            {{
+              viewerSession().kind === 'shared'
+                ? 'Each card signs one child into their own board first, with profile and growth tools right behind it.'
+                : 'Each card opens a child into today\'s board first, with their profile just behind it.'
+            }}
+          </p>
+        </div>
+
+        <div class="child-grid">
+          @for (card of childLaunchCards(); track card.child.id) {
+            <article class="child-card" [style.--card-accent]="card.child.themeColor">
+              <header class="child-card__header">
+                <div class="child-badge">
+                  <div class="child-badge__avatar" [style.background]="card.child.themeColor">
+                    {{ card.child.avatar }}
+                  </div>
+
+                  <div>
+                    <h3>{{ card.child.name }}</h3>
+                    <p>Level {{ card.child.level }} adventurer · Age {{ card.child.age }}</p>
+                  </div>
+                </div>
+
+                <p
+                  class="status-pill"
+                  [class.status-pill--ready]="card.screenTimeUnlocked"
+                  [class.status-pill--pending]="!card.screenTimeUnlocked && card.pendingApprovals > 0"
+                >
+                  {{ card.statusLabel }}
+                </p>
+              </header>
+
+              <div
+                class="progress-shell"
+                role="progressbar"
+                [attr.aria-label]="card.child.name + ' required quest progress'"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="card.progress"
+              >
+                <div class="progress-fill" [style.width.%]="card.progress"></div>
+              </div>
+
+              <div class="child-metrics">
+                <div>
+                  <span>Must-do</span>
+                  <strong>{{ card.completedRequired }}/{{ card.totalRequired }}</strong>
+                </div>
+                <div>
+                  <span>Points</span>
+                  <strong>{{ card.child.points }}</strong>
+                </div>
+                <div>
+                  <span>Streak</span>
+                  <strong>{{ card.child.streakDays }} days</strong>
+                </div>
+              </div>
+
+              <div class="child-card__details">
+                <p>{{ card.momentumLabel }}</p>
+                <p><strong>Reward shop:</strong> {{ card.rewardLabel }}</p>
+                <p><strong>Journal:</strong> {{ card.journalLabel }}</p>
+              </div>
+
+              <div class="child-card__actions">
+                <button type="button" class="action-button action-button--primary" (click)="openChildSection(card.child.id, 'today')">
+                  {{ viewerSession().kind === 'shared' ? "Sign in to today's board" : "Open today's board" }}
+                </button>
+
+                <button
+                  type="button"
+                  class="action-button action-button--secondary"
+                  (click)="openChildSection(card.child.id, 'profile')"
+                >
+                  {{ viewerSession().kind === 'shared' ? 'Sign in to profile' : 'Open profile' }}
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="shared-note">
+    <p class="eyebrow">Access note</p>
+    <h2>{{ sharedNote().title }}</h2>
+    <p>{{ sharedNote().copy }}</p>
+  </section>
+</main>

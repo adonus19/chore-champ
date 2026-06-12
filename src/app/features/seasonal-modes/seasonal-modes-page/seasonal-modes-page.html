@@ -1,0 +1,406 @@
+@if (vm(); as vm) {
+  <main class="seasonal-modes-page">
+    <a class="back-link" routerLink="/">Back to family dashboard</a>
+
+    @if (actionFeedback(); as feedback) {
+      <section
+        class="feedback-banner"
+        [class.feedback-banner--error]="feedback.kind === 'error'"
+        [class.feedback-banner--warning]="feedback.kind === 'warning'"
+        [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <strong>
+          {{ feedback.kind === 'error' ? 'Mode sync issue:' : feedback.kind === 'warning' ? 'Mode heads up:' : 'Mode updated:' }}
+        </strong>
+        {{ feedback.text }}
+      </section>
+    }
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Seasonal Mode Manager</p>
+        <h1>{{ vm.mode.name }}</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-actions">
+          @if (vm.mode.id !== activeMode().id) {
+            <button
+              type="button"
+              class="primary-button"
+              [disabled]="pendingActiveModeId() === vm.mode.id"
+              (click)="activateSelectedMode()"
+            >
+              {{ pendingActiveModeId() === vm.mode.id ? 'Making mode live...' : 'Make this the live mode' }}
+            </button>
+          } @else {
+            <span class="mode-pill mode-pill--active">Current live mode</span>
+          }
+
+          <a class="secondary-link" routerLink="/parent/quests">Open parent quest desk</a>
+        </div>
+      </div>
+
+      <aside class="mode-spotlight" aria-label="Current active mode summary">
+        <p class="mode-spotlight__label">Live right now</p>
+        <h2>{{ activeMode().name }}</h2>
+        <p>{{ activeMode().description }}</p>
+        <p class="mode-rule">{{ activeMode().defaultScreenTimeRule }}</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Seasonal mode summary">
+      @for (stat of vm.stats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    @if (lastSavedModeName()) {
+      <section class="success-banner" aria-live="polite">
+        <strong>Mode updated:</strong> {{ lastSavedModeName() }} now uses the saved editor settings in the mock family flow.
+      </section>
+    }
+
+    <section class="page-layout">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Pick the family rhythm</p>
+              <h2>Preview every seasonal mode</h2>
+            </div>
+            <p class="panel-copy">Click a mode to preview the board before you make it live for the family.</p>
+          </div>
+
+          <div class="mode-grid" role="list" aria-label="Seasonal mode previews">
+            @for (card of modeCards(); track card.mode.id) {
+              <button
+                type="button"
+                class="mode-card"
+                [class.mode-card--selected]="card.isSelected"
+                [class.mode-card--active]="card.isActive"
+                (click)="previewMode(card.mode.id)"
+              >
+                <div class="mode-card__top">
+                  <div>
+                    <p class="mode-card__eyebrow">{{ card.mode.intensity }} intensity</p>
+                    <h3>{{ card.mode.name }}</h3>
+                  </div>
+
+                  @if (card.isActive) {
+                    <span class="mode-pill mode-pill--active">Live</span>
+                  } @else if (card.isSelected) {
+                    <span class="mode-pill">Preview</span>
+                  }
+                </div>
+
+                <p>{{ card.mode.description }}</p>
+
+                <div class="mode-card__metrics">
+                  <div>
+                    <span>Required</span>
+                    <strong>{{ card.requiredQuestCount }}</strong>
+                  </div>
+                  <div>
+                    <span>Screen gate</span>
+                    <strong>{{ card.screenTimeQuestCount }}</strong>
+                  </div>
+                  <div>
+                    <span>Live quests</span>
+                    <strong>{{ card.liveQuestCount }}</strong>
+                  </div>
+                </div>
+              </button>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Editor depth</p>
+              <h2>Edit {{ vm.mode.name }}</h2>
+            </div>
+            <p class="panel-copy">Tune the real behavior of this mode, then save to push the changes through the previews and child boards.</p>
+          </div>
+
+          <form class="mode-form" (submit)="saveModeChanges(); $event.preventDefault()">
+            <div class="field-grid">
+              <label class="field field--full">
+                <span class="field__label">Mode description</span>
+                <textarea rows="3" [formField]="seasonalModeForm.description"></textarea>
+                @if (seasonalModeForm.description().touched() && seasonalModeForm.description().errors().length) {
+                  <span class="field__error">{{ errorMessage(seasonalModeForm.description().errors()) }}</span>
+                }
+              </label>
+
+              <label class="field">
+                <span class="field__label">Intensity</span>
+                <select [formField]="seasonalModeForm.intensity">
+                  @for (option of INTENSITY_OPTIONS; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="toggle-card">
+                <input type="checkbox" [formField]="seasonalModeForm.pauseStreaks" />
+                <div>
+                  <span class="toggle-card__title">Pause streaks in this mode</span>
+                  <p>Best for sick days, vacations, and softer seasons where consistency should not feel punishing.</p>
+                </div>
+              </label>
+
+              <label class="field field--full">
+                <span class="field__label">Screen-time guidance</span>
+                <textarea rows="3" [formField]="seasonalModeForm.defaultScreenTimeRule"></textarea>
+                @if (
+                  seasonalModeForm.defaultScreenTimeRule().touched() &&
+                  seasonalModeForm.defaultScreenTimeRule().errors().length
+                ) {
+                  <span class="field__error">{{ errorMessage(seasonalModeForm.defaultScreenTimeRule().errors()) }}</span>
+                }
+              </label>
+            </div>
+
+            <fieldset class="choice-group">
+              <legend>Required tracks</legend>
+              <div class="choice-grid">
+                @for (category of CATEGORY_TOGGLE_OPTIONS; track categoryTrackBy($index, category)) {
+                  <label class="choice-card">
+                    <input type="checkbox" [formField]="seasonalModeForm.requiredCategories[$index]" />
+                    <span class="choice-card__title">{{ category.label }}</span>
+                    <span class="choice-card__meta">{{ category.hint }}</span>
+                  </label>
+                }
+              </div>
+
+              @if (
+                seasonalModeForm.requiredCategories().touched() &&
+                seasonalModeForm.requiredCategories().errors().length
+              ) {
+                <p class="field__error">{{ errorMessage(seasonalModeForm.requiredCategories().errors()) }}</p>
+              }
+            </fieldset>
+
+            <fieldset class="choice-group">
+              <legend>Daily minimums</legend>
+              <div class="minimum-editor-grid">
+                @for (minimum of seasonalModeForm.dailyMinimums; track $index) {
+                  <div class="minimum-editor-card">
+                    <label class="field">
+                      <span class="field__label">Label</span>
+                      <input [formField]="minimum.label" placeholder="Reading" />
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Target</span>
+                      <input [formField]="minimum.target" placeholder="20 minutes" />
+                    </label>
+                  </div>
+                }
+              </div>
+
+              @if (seasonalModeForm.dailyMinimums().touched() && seasonalModeForm.dailyMinimums().errors().length) {
+                <p class="field__error">{{ errorMessage(seasonalModeForm.dailyMinimums().errors()) }}</p>
+              }
+            </fieldset>
+
+            <div class="form-actions">
+              <div class="action-row">
+                <button
+                  type="submit"
+                  class="primary-button"
+                  [disabled]="seasonalModeForm().invalid() || seasonalModeForm().pending() || !editorDirty()"
+                >
+                  Save mode changes
+                </button>
+                <button type="button" class="secondary-button" [disabled]="!editorDirty()" (click)="resetModeEditor()">
+                  Reset edits
+                </button>
+              </div>
+
+              <p class="form-helper">
+                Saving updates the selected mode in the local mock service. If this mode is already live, the family dashboard and child boards change too.
+              </p>
+            </div>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Mode behavior</p>
+              <h2>What changes in {{ vm.mode.name }}</h2>
+            </div>
+            <p class="panel-copy">This is the actual must-do shape of the board, not just a label swap.</p>
+          </div>
+
+          <div class="minimum-grid">
+            @for (minimum of vm.mode.dailyMinimums; track minimum.label) {
+              <article class="minimum-card">
+                <span>{{ minimum.label }}</span>
+                <strong>{{ minimum.target }}</strong>
+              </article>
+            }
+          </div>
+
+          <div class="tag-row">
+            @for (label of vm.requiredCategoryLabels; track label) {
+              <span class="tag tag--required">{{ label }} is required</span>
+            }
+          </div>
+
+          <div class="track-grid">
+            @for (track of vm.questMix; track track.category) {
+              <article class="track-card" [class.track-card--required]="track.required">
+                <div class="track-card__top">
+                  <h3>{{ track.label }}</h3>
+                  @if (track.required) {
+                    <span class="tag tag--required">Must-do track</span>
+                  } @else if (track.category === 'bonus') {
+                    <span class="tag tag--bonus">Bonus track</span>
+                  } @else {
+                    <span class="tag">Optional track</span>
+                  }
+                </div>
+
+                <p>{{ track.questCount }} live quest{{ track.questCount === 1 ? '' : 's' }}</p>
+                @if (track.screenTimeCount > 0) {
+                  <p class="track-card__meta">{{ track.screenTimeCount }} can still gate screen time.</p>
+                }
+              </article>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Child board preview</p>
+              <h2>How the board changes per child</h2>
+            </div>
+            <p class="panel-copy">Preview each child's must-do load before you change the whole family over.</p>
+          </div>
+
+          <div class="preview-list">
+            @for (preview of vm.childPreviews; track preview.child.id) {
+              <article class="preview-card">
+                <div class="preview-card__header">
+                  <div class="child-badge">
+                    <div class="child-badge__avatar" [style.background]="preview.child.themeColor">
+                      {{ preview.child.avatar }}
+                    </div>
+
+                    <div>
+                      <h3>{{ preview.child.name }}</h3>
+                      <p>Age {{ preview.child.age }} - Level {{ preview.child.level }}</p>
+                    </div>
+                  </div>
+
+                  <span class="mode-pill" [class.mode-pill--active]="preview.summary.remainingForScreenTime === 0 && preview.screenTimeCount > 0">
+                    {{ preview.requiredCount }} must-do
+                  </span>
+                </div>
+
+                <div class="preview-card__metrics">
+                  <div>
+                    <span>Must-do</span>
+                    <strong>{{ preview.requiredCount }}</strong>
+                  </div>
+                  <div>
+                    <span>Screen gate</span>
+                    <strong>{{ preview.screenTimeCount }}</strong>
+                  </div>
+                  <div>
+                    <span>Extra tracks</span>
+                    <strong>{{ preview.optionalCount }}</strong>
+                  </div>
+                </div>
+
+                <p class="preview-card__copy">{{ preview.modeMessage }}</p>
+                <p><strong>Next focus:</strong> {{ preview.summary.nextFocus }}</p>
+
+                @if (preview.trackLabels.length > 0) {
+                  <div class="tag-row">
+                    @for (label of preview.trackLabels; track label) {
+                      <span class="tag">{{ label }}</span>
+                    }
+                  </div>
+                }
+              </article>
+            }
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-column">
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Parent lens</p>
+              <h2>Mode rules</h2>
+            </div>
+          </div>
+
+          <div class="rule-grid">
+            <div class="rule-card">
+              <span>Streaks</span>
+              <strong>{{ vm.mode.pauseStreaks ? 'Paused in this mode' : 'Keep running' }}</strong>
+            </div>
+            <div class="rule-card">
+              <span>Screen-time rhythm</span>
+              <strong>{{ vm.screenTimeRule ? 'Quest gated' : 'Parent flex' }}</strong>
+            </div>
+            <div class="rule-card">
+              <span>Required categories</span>
+              <strong>{{ vm.mode.requiredCategories.length }}</strong>
+            </div>
+          </div>
+
+          <p class="rule-copy">{{ vm.mode.defaultScreenTimeRule }}</p>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Privilege focus</p>
+              <h2>What families should expect</h2>
+            </div>
+          </div>
+
+          @if (vm.screenTimeRule; as rule) {
+            <div class="privilege-block">
+              <h3>{{ rule.title }}</h3>
+              <ul class="rule-list">
+                @for (requirement of rule.requirements; track requirement) {
+                  <li>{{ requirement }}</li>
+                }
+              </ul>
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>Parent-guided screen time</h3>
+              <p>This mode does not use the standard screen-time rule, so parents stay in direct control.</p>
+            </div>
+          }
+
+          @if (vm.privilegeRules.length > 0) {
+            <div class="privilege-stack">
+              @for (rule of vm.privilegeRules; track rule.id) {
+                <article class="privilege-card">
+                  <h3>{{ rule.title }}</h3>
+                  <p>{{ privilegeTypeLabel(rule) }}</p>
+                </article>
+              }
+            </div>
+          }
+        </article>
+      </aside>
+    </section>
+  </main>
+}

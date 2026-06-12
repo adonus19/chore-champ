@@ -1,0 +1,222 @@
+@if (vm(); as vm) {
+  <main class="rewards-page" [style.--reward-accent]="vm.child.themeColor">
+    <a class="back-link" [routerLink]="['/children', vm.child.id, 'today']">Back to today's board</a>
+
+    @if (actionFeedback(); as feedback) {
+      <section
+        class="feedback-banner"
+        [class.feedback-banner--error]="feedback.kind === 'error'"
+        [class.feedback-banner--warning]="feedback.kind === 'warning'"
+        [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <strong>
+          {{ feedback.kind === 'error' ? 'Reward update issue:' : feedback.kind === 'warning' ? 'Reward heads up:' : 'Reward updated:' }}
+        </strong>
+        {{ feedback.text }}
+      </section>
+    }
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Reward Store</p>
+        <h1>{{ vm.child.name }}'s extras shop</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-tags" aria-label="Reward store highlights">
+          <span class="hero-tag">Mode: {{ vm.activeMode.name }}</span>
+          <span class="hero-tag hero-tag--gold">{{ vm.child.points }} points banked</span>
+          @if (vm.pendingCount > 0) {
+            <span class="hero-tag hero-tag--violet">{{ vm.pendingCount }} waiting for parent review</span>
+          }
+        </div>
+      </div>
+
+      <aside class="hero-status">
+        <div class="child-badge">
+          <div class="child-badge__avatar" [style.background]="vm.child.themeColor">
+            {{ vm.child.avatar }}
+          </div>
+
+          <div>
+            <h2>{{ vm.child.name }}</h2>
+            <p>Level {{ vm.child.level }} adventurer · Age {{ vm.child.age }}</p>
+          </div>
+        </div>
+
+        <div class="points-card">
+          <span>Points bank</span>
+          <strong>{{ vm.child.points }}</strong>
+        </div>
+
+        <p class="rule-copy">Rewards celebrate consistency and growth. Everyday privileges still depend on family expectations, not point spending.</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Reward store summary">
+      @for (stat of vm.headlineStats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    <section class="content-grid">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Reward shelf</p>
+              <h2>Spend points on extras</h2>
+            </div>
+            <p class="panel-copy">Claim what is ready now, or request a bigger reward that still needs a parent green light.</p>
+          </div>
+
+          <div class="reward-list">
+            @for (item of vm.rewards; track item.reward.id) {
+              <article class="reward-card" [class.reward-card--pending]="item.pendingRequest" [class.reward-card--ready]="item.canRedeem">
+                <div class="reward-card__top">
+                  <div>
+                    <div class="reward-tags">
+                      <span class="reward-tag">{{ rewardTypeLabel(item.reward.type) }}</span>
+                      @if (item.reward.requiresParentApproval) {
+                        <span class="reward-tag reward-tag--violet">Needs parent review</span>
+                      }
+                    </div>
+
+                    <h3>{{ item.reward.title }}</h3>
+                    <p>{{ rewardDescription(item.reward) }}</p>
+                  </div>
+
+                  <div class="reward-cost">
+                    <span>Cost</span>
+                    <strong>{{ item.reward.pointCost }}</strong>
+                  </div>
+                </div>
+
+                <p class="reward-highlight">{{ rewardHighlight(item.reward) }}</p>
+
+                <div class="reward-footer">
+                  <div class="reward-meta">
+                    @if (item.pendingRequest) {
+                      <span>Points are reserved while a parent reviews this request.</span>
+                    } @else if (item.affordable) {
+                      <span>Ready to claim with today's point balance.</span>
+                    } @else {
+                      <span>Need {{ item.pointsLeft }} more points.</span>
+                    }
+                  </div>
+
+                  <button
+                    type="button"
+                    class="reward-button"
+                    [class.reward-button--working]="pendingRewardId() === item.reward.id"
+                    [disabled]="!item.canRedeem || pendingRewardId() === item.reward.id"
+                    (click)="redeemReward(item.reward)"
+                  >
+                    {{
+                      pendingRewardId() === item.reward.id
+                        ? 'Saving...'
+                        : item.canRedeem
+                          ? item.actionLabel
+                          : item.pendingRequest
+                            ? 'Waiting for parent'
+                            : 'Keep questing'
+                    }}
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Recent activity</p>
+              <h2>Reward history</h2>
+            </div>
+            <p class="panel-copy">This keeps reward requests, approvals, and point spending visible across the whole family flow.</p>
+          </div>
+
+          @if (vm.activity.length > 0) {
+            <div class="activity-list">
+              @for (item of vm.activity; track item.redemption.id) {
+                <article class="activity-card" [class.activity-card--pending]="item.redemption.status === 'pending'">
+                  <div class="activity-card__top">
+                    <div>
+                      <p class="activity-card__eyebrow">{{ rewardTypeLabel(item.reward.type) }}</p>
+                      <h3>{{ item.reward.title }}</h3>
+                    </div>
+
+                    <span class="activity-state" [class.activity-state--pending]="item.redemption.status === 'pending'">
+                      {{ rewardStatusLabel(item) }}
+                    </span>
+                  </div>
+
+                  <p>{{ item.redemption.note }}</p>
+                  <p class="activity-meta"><strong>Points spent:</strong> {{ item.redemption.pointCost }}</p>
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No reward claims yet</h3>
+              <p>The first reward request or redemption will show up here.</p>
+            </div>
+          }
+        </article>
+      </section>
+
+      <aside class="side-column">
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Privileges stay separate</p>
+              <h2>Not purchasable here</h2>
+            </div>
+          </div>
+
+          <p class="rule-copy">Friend hangouts, sleepovers, and similar privileges stay tied to responsibilities, respect, and family readiness.</p>
+
+          <div class="privilege-list">
+            @for (rule of vm.privilegeRules; track rule.id) {
+              <article class="privilege-card">
+                <h3>{{ rule.title }}</h3>
+                <ul class="rule-list">
+                  @for (requirement of rule.requirements; track requirement) {
+                    <li>{{ requirement }}</li>
+                  }
+                </ul>
+              </article>
+            }
+          </div>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Store rhythm</p>
+              <h2>How this mode feels</h2>
+            </div>
+          </div>
+
+          <p class="rule-copy">{{ vm.activeMode.defaultScreenTimeRule }}</p>
+          <p class="rule-copy">Seasonal mode behavior is still shallow right now and is queued for a deeper pass in the project tracker.</p>
+        </article>
+      </aside>
+    </section>
+  </main>
+} @else {
+  <main class="rewards-page rewards-page--empty">
+    <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+    <section class="panel empty-state">
+      <p class="eyebrow">Reward store not found</p>
+      <h1>We could not find that adventurer</h1>
+      <p>Head back to family access and reopen the right child board from there.</p>
+    </section>
+  </main>
+}

@@ -1,0 +1,144 @@
+<main class="signup-page">
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Parent signup</p>
+      <h1>Create the first family workspace</h1>
+      <p class="hero-message">
+        This is the clean entry for a brand-new family. We create the parent Firebase account first, then bootstrap the
+        first household, people record, and owner membership in Firestore.
+      </p>
+
+      <div class="hero-tags" aria-label="Signup flow highlights">
+        <span class="hero-tag">Public route</span>
+        <span class="hero-tag hero-tag--mint">Parent-owned household</span>
+        <span class="hero-tag hero-tag--violet">{{ firebaseEnabled ? 'Firebase Auth active' : 'Firebase needed' }}</span>
+      </div>
+    </div>
+
+    <aside class="hero-note">
+      <p class="hero-note__eyebrow">Bootstrap note</p>
+      <h2>First household setup only</h2>
+      <p>
+        This chunk only handles the first parent and the first household. Co-parent invites and child account setup
+        stay on their own later chunks.
+      </p>
+      @if (firebaseEnabled && !authReady()) {
+        <p class="hero-note__status">Checking Firebase session…</p>
+      }
+    </aside>
+  </section>
+
+  <section class="signup-layout">
+    <article class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Create account</p>
+          <h2>Start the parent lane</h2>
+        </div>
+        <p class="panel-copy">
+          This creates the parent Firebase user, the Firestore bootstrap docs, and the first household owner
+          membership.
+        </p>
+      </div>
+
+      <form class="signup-form" (submit)="createParentAccount(); $event.preventDefault()">
+        <label class="field">
+          <span class="field__label">Parent display name</span>
+          <input
+            type="text"
+            [formField]="signupForm.displayName"
+            (input)="clearSignupError()"
+            autocomplete="name"
+            placeholder="Mom"
+          />
+          @if (signupForm.displayName().touched() && signupForm.displayName().errors().length) {
+            <span class="field__error">{{ errorMessage(signupForm.displayName().errors()) }}</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Household name</span>
+          <input
+            type="text"
+            [formField]="signupForm.householdName"
+            (input)="clearSignupError()"
+            autocomplete="organization"
+            placeholder="Sunrise Home"
+          />
+          @if (signupForm.householdName().touched() && signupForm.householdName().errors().length) {
+            <span class="field__error">{{ errorMessage(signupForm.householdName().errors()) }}</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Parent email</span>
+          <input
+            type="email"
+            [formField]="signupForm.email"
+            (input)="clearSignupError()"
+            autocomplete="email"
+            placeholder="parent@example.com"
+          />
+          @if (signupForm.email().touched() && signupForm.email().errors().length) {
+            <span class="field__error">{{ errorMessage(signupForm.email().errors()) }}</span>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field__label">Password</span>
+          <input
+            type="password"
+            [formField]="signupForm.password"
+            (input)="clearSignupError()"
+            autocomplete="new-password"
+            placeholder="Choose a password"
+          />
+          @if (signupForm.password().touched() && signupForm.password().errors().length) {
+            <span class="field__error">{{ errorMessage(signupForm.password().errors()) }}</span>
+          }
+        </label>
+
+        @if (accountExistsNote(); as accountNote) {
+          <p class="status-note">{{ accountNote }}</p>
+        }
+
+        @if (signupError()) {
+          <span class="field__error">{{ signupError() }}</span>
+        }
+
+        <div class="form-actions">
+          <button
+            type="submit"
+            class="primary-button"
+            [disabled]="!firebaseEnabled || !authReady() || signupForm().invalid() || signupForm().pending()"
+          >
+            Create parent account
+          </button>
+          <a routerLink="/login" class="secondary-link">Back to sign in</a>
+        </div>
+      </form>
+    </article>
+
+    <article class="panel panel--support">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">What happens next</p>
+          <h2>Bootstrap records created</h2>
+        </div>
+        <p class="panel-copy">This route only creates the records needed for the first parent-owned household.</p>
+      </div>
+
+      <ul class="check-list">
+        <li><code>authAccounts/&lt;uid&gt;</code> for account bootstrap</li>
+        <li><code>people/&lt;personId&gt;</code> for the canonical parent identity</li>
+        <li><code>households/&lt;householdId&gt;</code> for the family workspace</li>
+        <li><code>households/&lt;householdId&gt;/members/&lt;personId&gt;</code> as the owner membership</li>
+      </ul>
+
+      <p class="status-note">
+        If Firebase Auth succeeds but Firestore bootstrap fails, this page lets the same signed-in parent retry setup
+        without creating a second account.
+      </p>
+    </article>
+  </section>
+</main>

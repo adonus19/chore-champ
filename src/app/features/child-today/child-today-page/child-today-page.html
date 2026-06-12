@@ -1,0 +1,387 @@
+@if (vm(); as vm) {
+  <main class="child-today-page" [style.--child-accent]="vm.child.themeColor">
+    <a class="back-link" [routerLink]="vm.backLink">{{ vm.backLabel }}</a>
+
+    @if (actionFeedback(); as feedback) {
+      <section
+        class="feedback-banner"
+        [class.feedback-banner--error]="feedback.kind === 'error'"
+        [class.feedback-banner--warning]="feedback.kind === 'warning'"
+        [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <strong>
+          {{ feedback.kind === 'error' ? 'Quest update issue:' : feedback.kind === 'warning' ? 'Quest heads up:' : 'Quest updated:' }}
+        </strong>
+        {{ feedback.text }}
+      </section>
+    }
+
+    @if (modeSyncError()) {
+      <section class="feedback-banner feedback-banner--warning" role="status" aria-live="polite">
+        <strong>Mode sync needs attention:</strong>
+        {{ modeSyncError() }}
+      </section>
+    }
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Today's Quests</p>
+        <h1>{{ vm.child.name }}'s quest board</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-tags" aria-label="Quest board highlights">
+          <span class="hero-tag">Mode: {{ vm.activeMode.name }}</span>
+          @if (vm.summary.pendingApprovals > 0) {
+            <span class="hero-tag hero-tag--violet">{{ vm.summary.pendingApprovals }} waiting for a parent check</span>
+          }
+          @if (vm.summary.bonusCompleted > 0) {
+            <span class="hero-tag hero-tag--mint">{{ vm.summary.bonusCompleted }} bonus quests banked</span>
+          }
+        </div>
+      </div>
+
+      <aside class="hero-status">
+        <div class="child-badge">
+          <div class="child-badge__avatar" [style.background]="vm.child.themeColor">
+            {{ vm.child.avatar }}
+          </div>
+
+          <div>
+            <h2>{{ vm.child.name }}</h2>
+            <p>Level {{ vm.child.level }} adventurer · Age {{ vm.child.age }}</p>
+          </div>
+        </div>
+
+        <p
+          class="status-pill"
+          [class.status-pill--ready]="vm.summary.screenTimeUnlocked"
+          [class.status-pill--pending]="vm.summary.pendingApprovals > 0 && !vm.summary.screenTimeUnlocked"
+        >
+          {{ vm.statusLabel }}
+        </p>
+
+        <div
+          class="progress-shell"
+          role="progressbar"
+          [attr.aria-label]="vm.child.name + ' required quest progress'"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          [attr.aria-valuenow]="vm.progress"
+        >
+          <div class="progress-fill" [style.width.%]="vm.progress"></div>
+        </div>
+
+        <div class="hero-metrics">
+          <div>
+            <span>Required quests</span>
+            <strong>{{ vm.summary.completedRequired }}/{{ vm.summary.totalRequired }}</strong>
+          </div>
+          <div>
+            <span>Left before screens</span>
+            <strong>{{ vm.summary.remainingForScreenTime }}</strong>
+          </div>
+        </div>
+
+        <p class="screen-time-copy">{{ vm.summary.momentumLabel }}</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Child progress summary">
+      @for (stat of vm.headlineStats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    <section class="content-grid">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Main quest line</p>
+              <h2>Today's required quests</h2>
+            </div>
+            <p class="panel-copy">
+              These quests count as today's must-do board in {{ vm.activeMode.name }}. Some unlock screens directly, and some keep the family rhythm strong.
+            </p>
+          </div>
+
+          <div class="quest-list">
+            @for (item of vm.requiredQuests; track item.quest.id) {
+              <article
+                class="quest-card"
+                [class.quest-card--approved]="item.status === 'approved'"
+                [class.quest-card--pending]="item.status === 'pending'"
+                [class.quest-card--rejected]="item.status === 'rejected'"
+              >
+                <div class="quest-card__top">
+                  <div>
+                    <div class="quest-meta">
+                      <span class="category-pill">{{ categoryLabel(item.quest.category) }}</span>
+                      @if (item.quest.requiredBeforeScreenTime) {
+                        <span class="quest-flag">Before screens</span>
+                      }
+                    </div>
+
+                    <h3>{{ item.quest.title }}</h3>
+                    <p>{{ item.quest.description }}</p>
+                  </div>
+
+                  <span class="quest-points">+{{ item.quest.points }}</span>
+                </div>
+
+                <div class="quest-status-row">
+                  <span class="state-pill" [class.state-pill--approved]="item.status === 'approved'" [class.state-pill--pending]="item.status === 'pending'" [class.state-pill--rejected]="item.status === 'rejected'">
+                    {{ statusLabel(item) }}
+                  </span>
+                  <p class="quest-note">{{ item.note }}</p>
+                </div>
+
+                <div class="quest-footer">
+                  <div class="quest-facts">
+                    <span>{{ difficultyLabel(item.quest.difficulty) }}</span>
+                    <span>{{ recurrenceLabel(item.quest.recurrence) }}</span>
+                  </div>
+
+                  @switch (item.status) {
+                    @case ('approved') {
+                      <button type="button" class="quest-button quest-button--approved" disabled>
+                        Quest banked
+                      </button>
+                    }
+                    @case ('pending') {
+                      <button type="button" class="quest-button quest-button--pending" disabled>
+                        Waiting on parent
+                      </button>
+                    }
+                    @default {
+                      <button
+                        type="button"
+                        class="quest-button"
+                        [class.quest-button--working]="pendingQuestId() === item.quest.id"
+                        [class.quest-button--retry]="item.status === 'rejected'"
+                        [disabled]="pendingQuestId() === item.quest.id"
+                        (click)="completeQuest(item)"
+                      >
+                        {{
+                          pendingQuestId() === item.quest.id
+                            ? 'Sending...'
+                            : item.status === 'rejected'
+                              ? 'Resubmit quest'
+                              : 'Mark complete'
+                        }}
+                      </button>
+                    }
+                  }
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state">
+                <h3>Nothing required in this mode</h3>
+                <p>This seasonal mode is running light today, so the quest board is already clear.</p>
+              </div>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Extra sparkle</p>
+              <h2>{{ vm.bonusSectionTitle }}</h2>
+            </div>
+            <p class="panel-copy">{{ vm.bonusSectionCopy }}</p>
+          </div>
+
+          <div class="quest-list quest-list--bonus">
+            @for (item of vm.bonusQuests; track item.quest.id) {
+              <article
+                class="quest-card quest-card--bonus"
+                [class.quest-card--approved]="item.status === 'approved'"
+                [class.quest-card--pending]="item.status === 'pending'"
+                [class.quest-card--rejected]="item.status === 'rejected'"
+              >
+                <div class="quest-card__top">
+                  <div>
+                    <div class="quest-meta">
+                      <span class="category-pill category-pill--bonus">{{ categoryLabel(item.quest.category) }}</span>
+                    </div>
+
+                    <h3>{{ item.quest.title }}</h3>
+                    <p>{{ item.quest.description }}</p>
+                  </div>
+
+                  <span class="quest-points">+{{ item.quest.points }}</span>
+                </div>
+
+                <div class="quest-status-row">
+                  <span class="state-pill" [class.state-pill--approved]="item.status === 'approved'" [class.state-pill--pending]="item.status === 'pending'" [class.state-pill--rejected]="item.status === 'rejected'">
+                    {{ statusLabel(item) }}
+                  </span>
+                  <p class="quest-note">{{ item.note }}</p>
+                </div>
+
+                <div class="quest-footer">
+                  <div class="quest-facts">
+                    <span>{{ difficultyLabel(item.quest.difficulty) }}</span>
+                    <span>{{ recurrenceLabel(item.quest.recurrence) }}</span>
+                  </div>
+
+                  @switch (item.status) {
+                    @case ('approved') {
+                      <button type="button" class="quest-button quest-button--approved" disabled>
+                        Bonus banked
+                      </button>
+                    }
+                    @case ('pending') {
+                      <button type="button" class="quest-button quest-button--pending" disabled>
+                        Waiting on parent
+                      </button>
+                    }
+                    @default {
+                      <button
+                        type="button"
+                        class="quest-button"
+                        [class.quest-button--working]="pendingQuestId() === item.quest.id"
+                        [class.quest-button--retry]="item.status === 'rejected'"
+                        [disabled]="pendingQuestId() === item.quest.id"
+                        (click)="completeQuest(item)"
+                      >
+                        {{
+                          pendingQuestId() === item.quest.id
+                            ? 'Sending...'
+                            : item.status === 'rejected'
+                              ? 'Resubmit quest'
+                              : 'Complete bonus quest'
+                        }}
+                      </button>
+                    }
+                  }
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state">
+                <h3>No bonus quests today</h3>
+                <p>That is okay. A strong required quest day is already a win.</p>
+              </div>
+            }
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-column">
+        @if (vm.allRequiredDone) {
+          <article class="panel celebration-panel">
+            <p class="eyebrow">Level Up</p>
+            <h2>Daily quest board complete</h2>
+            <p>All required quests are current. Now the board can shift into bonus wins, celebration, or a parent check.</p>
+          </article>
+        }
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Power-ups</p>
+              <h2>Keep momentum going</h2>
+            </div>
+          </div>
+
+          <div class="info-list">
+            <div class="info-item">
+              <span>Next focus</span>
+              <strong>{{ vm.summary.nextFocus }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Reading now</span>
+              <strong>{{ vm.child.currentBook || "Pick today's book" }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Life skill</span>
+              <strong>{{ vm.child.currentLifeSkill || 'Choose a life skill quest' }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Sports goal</span>
+              <strong>{{ vm.child.sportsGoal || 'No sports goal set yet' }}</strong>
+            </div>
+          </div>
+
+          <a class="panel-link" [routerLink]="['/children', vm.child.id, 'profile']">Open profile</a>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Goals and journal</p>
+              <h2>Track the bigger wins</h2>
+            </div>
+          </div>
+
+          <div class="info-list">
+            <div class="info-item">
+              <span>Active goals</span>
+              <strong>{{ vm.activeGoalsCount }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Goal focus</span>
+              <strong>{{ vm.goalFocusLabel }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Journal status</span>
+              <strong>{{ vm.todayJournalEntry ? 'Today saved' : "Write today's win" }}</strong>
+            </div>
+          </div>
+
+          <div class="panel-link-row">
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'goals']">Open goals</a>
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'journal']">Write journal</a>
+          </div>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Reward shop</p>
+              <h2>Spend points on extras</h2>
+            </div>
+          </div>
+
+          <p class="rule-copy">Rewards are for growth and consistency. Friends, sleepovers, and screen-time rules stay separate.</p>
+          <a class="panel-link" [routerLink]="['/children', vm.child.id, 'rewards']">Open reward store</a>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Privilege reminder</p>
+              <h2>How screen time opens</h2>
+            </div>
+          </div>
+
+          <p class="rule-copy">{{ vm.activeMode.defaultScreenTimeRule }}</p>
+
+          @if (vm.activeScreenTimeRule; as rule) {
+            <ul class="rule-list">
+              @for (requirement of rule.requirements; track requirement) {
+                <li>{{ requirement }}</li>
+              }
+            </ul>
+          }
+        </article>
+      </aside>
+    </section>
+  </main>
+} @else {
+  <main class="child-today-page child-today-page--empty">
+    <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+    <section class="panel empty-state-panel">
+      <p class="eyebrow">Quest board not found</p>
+      <h1>We could not find that adventurer</h1>
+      <p>Try heading back to family access and opening the right child board from there.</p>
+    </section>
+  </main>
+}

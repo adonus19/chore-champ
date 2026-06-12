@@ -1,0 +1,167 @@
+@if (vm(); as vm) {
+  <main class="child-profile-page" [style.--profile-accent]="vm.child.themeColor">
+    <a class="back-link" [routerLink]="['/children', vm.child.id, 'today']">Back to today's board</a>
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Child Profile</p>
+        <h1>{{ vm.child.name }}'s growth board</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-tags" aria-label="Profile highlights">
+          <span class="hero-tag">Mode: {{ vm.activeMode.name }}</span>
+          <span class="hero-tag hero-tag--gold">{{ vm.badges.length }} badge{{ vm.badges.length === 1 ? '' : 's' }} earned</span>
+          @if (vm.completedGoalsCount > 0) {
+            <span class="hero-tag hero-tag--mint">{{ vm.completedGoalsCount }} goals complete</span>
+          }
+        </div>
+      </div>
+
+      <aside class="hero-status">
+        <div class="child-badge">
+          <div class="child-badge__avatar" [style.background]="vm.child.themeColor">
+            {{ vm.child.avatar }}
+          </div>
+
+          <div>
+            <h2>{{ vm.child.name }}</h2>
+            <p>Level {{ vm.child.level }} adventurer · Age {{ vm.child.age }}</p>
+          </div>
+        </div>
+
+        <div class="status-card">
+          <span>Current profile focus</span>
+          <strong>{{ vm.spotlightCards[1].value }}</strong>
+        </div>
+
+        <p class="rule-copy">{{ vm.activeMode.defaultScreenTimeRule }}</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Child profile summary">
+      @for (stat of vm.headlineStats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    <section class="content-grid">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Big picture</p>
+              <h2>Current focus areas</h2>
+            </div>
+            <p class="panel-copy">This pulls the bigger growth picture into one place so parents and kids can see identity, not just checkboxes.</p>
+          </div>
+
+          <div class="spotlight-grid">
+            @for (card of vm.spotlightCards; track card.label) {
+              <article class="spotlight-card">
+                <span>{{ card.label }}</span>
+                <strong>{{ card.value }}</strong>
+              </article>
+            }
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Badges</p>
+              <h2>Momentum markers</h2>
+            </div>
+            <p class="panel-copy">Badges here are lightweight profile signals that celebrate growth without turning the app into a pressure machine.</p>
+          </div>
+
+          <div class="badge-grid">
+            @for (badge of vm.badges; track badge.title) {
+              <article class="badge-card" [class.badge-card--mint]="badge.tone === 'mint'" [class.badge-card--gold]="badge.tone === 'gold'" [class.badge-card--violet]="badge.tone === 'violet'" [class.badge-card--sky]="badge.tone === 'sky'">
+                <p class="badge-card__title">{{ badge.title }}</p>
+                <p>{{ badge.copy }}</p>
+              </article>
+            }
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-column">
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Quick links</p>
+              <h2>Jump back into action</h2>
+            </div>
+          </div>
+
+          <div class="panel-link-row">
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'today']">Today's board</a>
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'goals']">Goals</a>
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'journal']">Journal</a>
+            <a class="panel-link" [routerLink]="['/children', vm.child.id, 'rewards']">Rewards</a>
+          </div>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Latest journal win</p>
+              <h2>Reflection snapshot</h2>
+            </div>
+          </div>
+
+          @if (vm.latestJournalEntry; as entry) {
+            <div class="entry-card">
+              <p><strong>Accomplished:</strong> {{ entry.accomplished }}</p>
+              <p><strong>Proud of:</strong> {{ entry.proudOf }}</p>
+              @if (entry.parentNote) {
+                <p><strong>Parent note:</strong> {{ entry.parentNote }}</p>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No journal wins yet</h3>
+              <p>The first journal reflection will show up here as part of the profile story.</p>
+            </div>
+          }
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Reward history</p>
+              <h2>Last reward move</h2>
+            </div>
+          </div>
+
+          @if (vm.latestRewardActivity; as item) {
+            <div class="entry-card">
+              <p><strong>{{ item.reward.title }}</strong></p>
+              <p>{{ rewardStatusLabel(item) }}</p>
+              <p>{{ item.redemption.pointCost }} points</p>
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No reward activity yet</h3>
+              <p>Reward requests and redemptions will start building the profile history here.</p>
+            </div>
+          }
+        </article>
+      </aside>
+    </section>
+  </main>
+} @else {
+  <main class="child-profile-page child-profile-page--empty">
+    <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+    <section class="panel empty-state">
+      <p class="eyebrow">Profile not found</p>
+      <h1>We could not find that adventurer</h1>
+      <p>Head back to family access and open the right child profile from there.</p>
+    </section>
+  </main>
+}

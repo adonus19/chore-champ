@@ -1,0 +1,215 @@
+@if (vm(); as vm) {
+  <main class="journal-page" [style.--journal-accent]="vm.child.themeColor">
+    <a class="back-link" [routerLink]="['/children', vm.child.id, 'today']">Back to today's board</a>
+
+    @if (actionFeedback(); as feedback) {
+      <section
+        class="feedback-banner"
+        [class.feedback-banner--error]="feedback.kind === 'error'"
+        [class.feedback-banner--warning]="feedback.kind === 'warning'"
+        [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <strong>
+          {{ feedback.kind === 'error' ? 'Journal sync issue:' : feedback.kind === 'warning' ? 'Journal heads up:' : 'Journal saved:' }}
+        </strong>
+        {{ feedback.text }}
+      </section>
+    }
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Journal</p>
+        <h1>{{ vm.child.name }}'s win of the day</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-tags" aria-label="Journal highlights">
+          <span class="hero-tag">Mode: {{ vm.activeMode.name }}</span>
+          @if (vm.todayEntry) {
+            <span class="hero-tag hero-tag--mint">Today's entry is saved</span>
+          }
+          @if (vm.entries.length > 1) {
+            <span class="hero-tag hero-tag--violet">{{ vm.entries.length }} total reflections</span>
+          }
+        </div>
+      </div>
+
+      <aside class="hero-status">
+        <div class="child-badge">
+          <div class="child-badge__avatar" [style.background]="vm.child.themeColor">
+            {{ vm.child.avatar }}
+          </div>
+
+          <div>
+            <h2>{{ vm.child.name }}</h2>
+            <p>Level {{ vm.child.level }} adventurer · Age {{ vm.child.age }}</p>
+          </div>
+        </div>
+
+        <div class="status-card">
+          <span>Journal rhythm</span>
+          <strong>{{ vm.todayStatusLabel }}</strong>
+        </div>
+
+        <p class="rule-copy">This journal is about confidence, effort, and noticing growth. It should feel warm, quick, and honest.</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Journal summary">
+      @for (stat of vm.headlineStats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    <section class="content-grid">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Daily reflection</p>
+              <h2>Write today's entry</h2>
+            </div>
+            <p class="panel-copy">Keep it short and real. One solid sentence for each prompt is enough.</p>
+          </div>
+
+          <form class="journal-form" (submit)="onSubmit(); $event.preventDefault()">
+            <label class="field">
+              <span class="field__label">What did I accomplish today?</span>
+              <textarea rows="4" [formField]="journalForm.accomplished" placeholder="I finished my reading before dinner and helped reset the kitchen."></textarea>
+              @if (journalForm.accomplished().touched() && journalForm.accomplished().errors().length) {
+                <span class="field__error">{{ errorMessage(journalForm.accomplished().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">What did I learn today?</span>
+              <textarea rows="4" [formField]="journalForm.learned" placeholder="I learned it is easier to stay calm when I do the hard thing first."></textarea>
+              @if (journalForm.learned().touched() && journalForm.learned().errors().length) {
+                <span class="field__error">{{ errorMessage(journalForm.learned().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">What am I proud of today?</span>
+              <textarea rows="4" [formField]="journalForm.proudOf" placeholder="I am proud that I practiced even when I wanted to skip."></textarea>
+              @if (journalForm.proudOf().touched() && journalForm.proudOf().errors().length) {
+                <span class="field__error">{{ errorMessage(journalForm.proudOf().errors()) }}</span>
+              }
+            </label>
+
+            <div class="form-actions">
+              <button type="submit" class="primary-button" [disabled]="journalForm().invalid() || journalForm().pending() || isSaving()">
+                {{ isSaving() ? 'Saving journal...' : "Save today's journal" }}
+              </button>
+              <a class="secondary-link" [routerLink]="['/children', vm.child.id, 'goals']">Open goals</a>
+            </div>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Recent wins</p>
+              <h2>Journal timeline</h2>
+            </div>
+            <p class="panel-copy">This keeps the reflection rhythm visible for kids and parents without turning journaling into a heavy task.</p>
+          </div>
+
+          @if (vm.entries.length > 0) {
+            <div class="entry-list">
+              @for (entry of vm.entries; track entry.id) {
+                <article class="entry-card">
+                  <div class="entry-card__top">
+                    <h3>{{ formatEntryDate(entry.date) }}</h3>
+                    @if (entry.parentReaction) {
+                      <span class="entry-reaction">{{ entry.parentReaction }}</span>
+                    }
+                  </div>
+
+                  <p><strong>Accomplished:</strong> {{ entry.accomplished }}</p>
+                  <p><strong>Learned:</strong> {{ entry.learned }}</p>
+                  <p><strong>Proud of:</strong> {{ entry.proudOf }}</p>
+                  @if (entry.parentNote) {
+                    <p class="parent-note"><strong>Parent note:</strong> {{ entry.parentNote }}</p>
+                  }
+                </article>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No entries yet</h3>
+              <p>The first journal reflection will show up here right after it is saved.</p>
+            </div>
+          }
+        </article>
+      </section>
+
+      <aside class="side-column">
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Prompt guide</p>
+              <h2>How to keep it easy</h2>
+            </div>
+          </div>
+
+          <div class="prompt-list">
+            <div class="prompt-card">
+              <span>Accomplished</span>
+              <strong>Name the concrete win.</strong>
+            </div>
+            <div class="prompt-card">
+              <span>Learned</span>
+              <strong>Notice what helped or changed.</strong>
+            </div>
+            <div class="prompt-card">
+              <span>Proud of</span>
+              <strong>Spot the effort behind the moment.</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Parent response</p>
+              <h2>What comes back</h2>
+            </div>
+          </div>
+
+          @if (vm.todayEntry?.parentNote || vm.todayEntry?.parentReaction) {
+            <div class="response-card">
+              @if (vm.todayEntry?.parentReaction) {
+                <p><strong>Reaction:</strong> {{ vm.todayEntry?.parentReaction }}</p>
+              }
+              @if (vm.todayEntry?.parentNote) {
+                <p><strong>Note:</strong> {{ vm.todayEntry?.parentNote }}</p>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No parent response yet</h3>
+              <p>Later we can deepen this with richer parent reactions and moderation tools.</p>
+            </div>
+          }
+
+          <p class="rule-copy">{{ vm.activeMode.defaultScreenTimeRule }}</p>
+        </article>
+      </aside>
+    </section>
+  </main>
+} @else {
+  <main class="journal-page journal-page--empty">
+    <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+    <section class="panel empty-state">
+      <p class="eyebrow">Journal not found</p>
+      <h1>We could not find that adventurer</h1>
+      <p>Head back to family access and reopen the right child board from there.</p>
+    </section>
+  </main>
+}

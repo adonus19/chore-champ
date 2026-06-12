@@ -1,0 +1,345 @@
+<main class="parent-goals-page">
+  <a class="back-link" routerLink="/">Back to family dashboard</a>
+
+  @if (lastSavedGoal(); as savedGoal) {
+    <section class="success-banner" role="status" aria-live="polite">
+      <strong>Goal {{ savedGoal.action }}:</strong>
+      {{ savedGoal.title }} is now saved to the {{ savedGoal.source === 'firebase' ? 'Firestore household goal board' : 'local demo goal board' }}.
+      @if (savedGoal.audience === 'self') {
+        Open My board to track and update it.
+      } @else {
+        Child boards will reflect the change right away.
+      }
+    </section>
+  }
+
+  @if (actionError()) {
+    <section class="error-banner" role="alert" aria-live="assertive">
+      <strong>Goal sync issue:</strong> {{ actionError() }}
+    </section>
+  }
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Parent Goals Manager</p>
+      <h1>Shape the next stretch target</h1>
+      <p class="hero-message">
+        Goals should feel motivating, visible, and steady. They work best when the finish line is clear and the progress is easy to see.
+      </p>
+
+      <div class="hero-actions">
+        @if (showParentSelfBoard()) {
+          <a class="hero-action" routerLink="/parent/me">Open my board</a>
+        }
+        <a class="hero-action hero-action--secondary" routerLink="/">Open family dashboard</a>
+      </div>
+
+      <div class="hero-tags" aria-label="Planning context">
+        <span class="hero-tag">Current mode: {{ activeMode().name }}</span>
+        <span class="hero-tag hero-tag--gold">{{ quickStats()[2].value }} live goal{{ quickStats()[2].value === '1' ? '' : 's' }} this mode</span>
+      </div>
+    </div>
+
+    <aside class="hero-callout" aria-label="Goal planning reminder">
+      <p class="hero-callout__label">Design lens</p>
+      <h2>Progress over pressure</h2>
+      <p>Choose goals that reward consistency, effort, and visible growth instead of perfection.</p>
+      <p class="hero-callout__rule">{{ activeMode().defaultScreenTimeRule }}</p>
+    </aside>
+  </section>
+
+  <section class="stats-grid" aria-label="Parent goals manager summary">
+    @for (stat of quickStats(); track stat.label) {
+      <article class="stat-card">
+        <p class="stat-card__label">{{ stat.label }}</p>
+        <p class="stat-card__value">{{ stat.value }}</p>
+        <p class="stat-card__hint">{{ stat.hint }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="admin-layout">
+    <section class="main-column">
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">{{ editingGoal() ? 'Edit goal' : 'New goal' }}</p>
+            <h2>{{ editingGoal() ? 'Update this stretch target' : 'Create a new stretch target' }}</h2>
+          </div>
+          <p class="panel-copy">
+            Keep the wording encouraging, the measurement simple, and the seasonal modes intentional so the goal shows up in the right family rhythms.
+          </p>
+        </div>
+
+        <form class="goal-form" (submit)="onSubmit(); $event.preventDefault()">
+          <div class="field-grid">
+            <label class="field">
+              <span class="field__label">Who is this goal for?</span>
+              <select [formField]="goalForm.childId">
+                @for (target of goalTargets(); track target.id) {
+                  <option [value]="target.id">{{ target.name }}</option>
+                }
+              </select>
+              @if (goalForm.childId().touched() && goalForm.childId().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.childId().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Category</span>
+              <select [formField]="goalForm.category">
+                @for (option of GOAL_CATEGORY_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Goal title</span>
+              <input [formField]="goalForm.title" placeholder="Books read this year" />
+              @if (goalForm.title().touched() && goalForm.title().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.title().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Current progress</span>
+              <input type="number" step="1" [formField]="goalForm.current" />
+              @if (goalForm.current().touched() && goalForm.current().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.current().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Target</span>
+              <input type="number" step="1" [formField]="goalForm.target" />
+              @if (goalForm.target().touched() && goalForm.target().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.target().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Unit</span>
+              <input [formField]="goalForm.unit" placeholder="books, serves, miles, wins" />
+              @if (goalForm.unit().touched() && goalForm.unit().errors().length) {
+                <span class="field__error">{{ errorMessage(goalForm.unit().errors()) }}</span>
+              }
+            </label>
+          </div>
+
+          <div class="field-note">
+            <p><strong>{{ selectedCategory().label }}:</strong> {{ selectedCategory().hint }}</p>
+
+            <div class="chip-row" aria-label="Suggested units">
+              @for (unit of selectedCategory().suggestedUnits; track unit) {
+                <button type="button" class="chip-button" (click)="applySuggestedUnit(unit)">
+                  Use {{ unit }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <fieldset class="choice-group">
+            <legend>Seasonal modes</legend>
+            <div class="choice-grid">
+              @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
+                <label class="choice-card">
+                  <input type="checkbox" [formField]="goalForm.activeModes[$index]" />
+                  <span class="choice-card__title">{{ mode.name }}</span>
+                  <span class="choice-card__meta">{{ mode.intensity }} intensity</span>
+                </label>
+              }
+            </div>
+
+            @if (goalForm.activeModes().touched() && goalForm.activeModes().errors().length) {
+              <p class="field__error">{{ errorMessage(goalForm.activeModes().errors()) }}</p>
+            }
+          </fieldset>
+
+          <div class="form-actions">
+            <div class="action-row">
+              <button type="submit" class="primary-button" [disabled]="goalForm().invalid() || goalForm().pending()">
+                {{ editingGoal() ? 'Save goal changes' : 'Add goal to family board' }}
+              </button>
+
+              @if (editingGoal()) {
+                <button type="button" class="danger-button" (click)="deleteEditingGoal()">Delete goal</button>
+                <button type="button" class="secondary-button" (click)="cancelEdit()">Cancel edit</button>
+              }
+            </div>
+
+            <p class="form-helper">
+              This updates the shared family goal board. Child goals appear on child boards, and self goals appear on My board.
+            </p>
+          </div>
+        </form>
+      </article>
+    </section>
+
+    <aside class="side-column">
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Live preview</p>
+            <h2>Goals by board</h2>
+          </div>
+          <p class="panel-copy">This preview keeps child boards simple while also showing where your own parent goals land.</p>
+        </div>
+
+        <div class="goal-groups">
+          @if (personalGoalGroup(); as group) {
+            <section class="goal-group goal-group--self">
+              <header class="goal-group__header">
+                <div class="goal-group__identity">
+                  <div class="goal-group__avatar goal-group__avatar--self">ME</div>
+
+                  <div>
+                    <h3>{{ group.name }}</h3>
+                    <p>{{ group.items.length }} goal{{ group.items.length === 1 ? '' : 's' }} · {{ group.completedCount }} complete</p>
+                  </div>
+                </div>
+
+                <a class="inline-link" routerLink="/parent/me">Open My board</a>
+              </header>
+
+              @if (group.items.length > 0) {
+                <div class="preview-list">
+                  @for (item of group.items; track item.goal.id) {
+                    <article class="preview-card" [class.preview-card--complete]="item.complete">
+                      <div class="preview-card__top">
+                        <div>
+                          <p class="preview-card__eyebrow">{{ CATEGORY_LABELS[item.goal.category] }}</p>
+                          <h3>{{ item.goal.title }}</h3>
+                        </div>
+
+                        <button type="button" class="inline-button" (click)="startEdit(item.goal.id)">Edit</button>
+                      </div>
+
+                      <div class="preview-tags">
+                        <span class="preview-tag">{{ item.goal.current }} / {{ item.goal.target }} {{ item.goal.unit }}</span>
+                        @if (item.liveInCurrentMode) {
+                          <span class="preview-tag preview-tag--mint">Live in {{ activeMode().name }}</span>
+                        } @else {
+                          <span class="preview-tag preview-tag--violet">Hidden in {{ activeMode().name }}</span>
+                        }
+                      </div>
+
+                      <div
+                        class="progress-shell"
+                        role="progressbar"
+                        [attr.aria-label]="item.goal.title + ' progress'"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        [attr.aria-valuenow]="item.progress"
+                      >
+                        <div class="progress-fill" [style.width.%]="item.progress"></div>
+                      </div>
+
+                      <p class="preview-meta"><strong>Modes:</strong> {{ item.modeNames.join(', ') }}</p>
+                      <p class="preview-meta"><strong>Status:</strong> {{ remainingLabel(item.goal) }}</p>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="empty-state">
+                  <h3>No personal goals yet</h3>
+                  <p>Choose "Myself" in the form above, or open My board to add the first goal for {{ group.name }}.</p>
+                </div>
+              }
+            </section>
+          }
+
+          @for (group of goalGroups(); track group.child.id) {
+            <section class="goal-group">
+              <header class="goal-group__header">
+                <div class="goal-group__identity">
+                  <div class="goal-group__avatar" [style.background]="group.child.themeColor">
+                    {{ group.child.avatar }}
+                  </div>
+
+                  <div>
+                    <h3>{{ group.child.name }}</h3>
+                    <p>{{ group.items.length }} goal{{ group.items.length === 1 ? '' : 's' }} · {{ group.completedCount }} complete</p>
+                  </div>
+                </div>
+
+                <a class="inline-link" [routerLink]="['/children', group.child.id, 'goals']">Open child board</a>
+              </header>
+
+              @if (group.items.length > 0) {
+                <div class="preview-list">
+                  @for (item of group.items; track item.goal.id) {
+                    <article class="preview-card" [class.preview-card--complete]="item.complete">
+                      <div class="preview-card__top">
+                        <div>
+                          <p class="preview-card__eyebrow">{{ CATEGORY_LABELS[item.goal.category] }}</p>
+                          <h3>{{ item.goal.title }}</h3>
+                        </div>
+
+                        <button type="button" class="inline-button" (click)="startEdit(item.goal.id)">Edit</button>
+                      </div>
+
+                      <div class="preview-tags">
+                        <span class="preview-tag">{{ item.goal.current }} / {{ item.goal.target }} {{ item.goal.unit }}</span>
+                        @if (item.liveInCurrentMode) {
+                          <span class="preview-tag preview-tag--mint">Live in {{ activeMode().name }}</span>
+                        } @else {
+                          <span class="preview-tag preview-tag--violet">Hidden in {{ activeMode().name }}</span>
+                        }
+                      </div>
+
+                      <div
+                        class="progress-shell"
+                        role="progressbar"
+                        [attr.aria-label]="item.goal.title + ' progress'"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        [attr.aria-valuenow]="item.progress"
+                      >
+                        <div class="progress-fill" [style.width.%]="item.progress"></div>
+                      </div>
+
+                      <p class="preview-meta"><strong>Modes:</strong> {{ item.modeNames.join(', ') }}</p>
+                      <p class="preview-meta"><strong>Status:</strong> {{ remainingLabel(item.goal) }}</p>
+                    </article>
+                  }
+                </div>
+              } @else {
+                <div class="empty-state">
+                  <h3>No goals yet for {{ group.child.name }}</h3>
+                  <p>Use the form to add the first stretch target for this child.</p>
+                </div>
+              }
+            </section>
+          }
+        </div>
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Goal guardrails</p>
+            <h2>What makes a good goal</h2>
+          </div>
+        </div>
+
+        <div class="info-list">
+          <div class="info-item">
+            <span>Clear unit</span>
+            <strong>Kids should know exactly what counts.</strong>
+          </div>
+          <div class="info-item">
+            <span>Visible progress</span>
+            <strong>Targets work best when progress can move often.</strong>
+          </div>
+          <div class="info-item">
+            <span>Mode aware</span>
+            <strong>Use seasonal modes so goals appear in the right rhythm.</strong>
+          </div>
+        </div>
+
+        <p class="rule-copy">Goals are for long-game growth, not for gating basic privileges or creating extra shame when a day goes sideways.</p>
+      </article>
+    </aside>
+  </section>
+</main>

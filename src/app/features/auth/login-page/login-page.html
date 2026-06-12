@@ -1,0 +1,219 @@
+<main class="login-page">
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Public login</p>
+      <h1>Start in the right family lane</h1>
+      <p class="hero-message">
+        This screen stays generic on purpose. The app should not reveal family-specific dashboards, rewards, or child
+        progress until a role is actually signed in.
+      </p>
+
+      <div class="hero-tags" aria-label="Login flow highlights">
+        <span class="hero-tag">Parent lane</span>
+        <span class="hero-tag hero-tag--mint">Child lane</span>
+        <span class="hero-tag hero-tag--violet">{{ firebaseEnabled ? 'Firebase Auth active' : 'Demo fallback active' }}</span>
+      </div>
+    </div>
+
+    <aside class="hero-note">
+      <p class="hero-note__eyebrow">Auth status</p>
+      <h2>{{ noteContent().heading }}</h2>
+      <p>{{ noteContent().copy }}</p>
+      @if (firebaseEnabled && !authReady()) {
+        <p class="hero-note__status">Checking Firebase session…</p>
+      }
+    </aside>
+  </section>
+
+  <section class="login-layout">
+    <article class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Parent sign in</p>
+          <h2>Open the family command view</h2>
+        </div>
+        <p class="panel-copy">Parents land in the dashboard and family access hub after sign-in.</p>
+      </div>
+
+      @if (firebaseEnabled) {
+        <form class="login-form" (submit)="signInParentFirebase(); $event.preventDefault()">
+          <label class="field">
+            <span class="field__label">Parent email</span>
+            <input
+              type="email"
+              [formField]="parentFirebaseForm.email"
+              (input)="clearParentError()"
+              autocomplete="email"
+              placeholder="parent@example.com"
+            />
+            @if (parentFirebaseForm.email().touched() && parentFirebaseForm.email().errors().length) {
+              <span class="field__error">{{ errorMessage(parentFirebaseForm.email().errors()) }}</span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input
+              type="password"
+              [formField]="parentFirebaseForm.password"
+              (input)="clearParentError()"
+              autocomplete="current-password"
+              placeholder="Enter password"
+            />
+            @if (parentFirebaseForm.password().touched() && parentFirebaseForm.password().errors().length) {
+              <span class="field__error">{{ errorMessage(parentFirebaseForm.password().errors()) }}</span>
+            }
+          </label>
+
+          @if (parentError()) {
+            <span class="field__error">{{ parentError() }}</span>
+          }
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="primary-button"
+              [disabled]="!authReady() || parentFirebaseForm().invalid() || parentFirebaseForm().pending()"
+            >
+              Sign in with Firebase
+            </button>
+            <a routerLink="/signup/parent" class="secondary-link">Create parent account</a>
+          </div>
+        </form>
+      } @else {
+        <form class="login-form" (submit)="signInParentDemo(); $event.preventDefault()">
+          <label class="field">
+            <span class="field__label">Parent demo code</span>
+            <input
+              type="text"
+              [formField]="parentDemoForm.code"
+              (input)="clearParentError()"
+              autocomplete="off"
+              placeholder="Enter parent code"
+            />
+            @if (parentDemoForm.code().touched() && parentDemoForm.code().errors().length) {
+              <span class="field__error">{{ errorMessage(parentDemoForm.code().errors()) }}</span>
+            }
+            @if (parentError()) {
+              <span class="field__error">{{ parentError() }}</span>
+            }
+          </label>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button" [disabled]="parentDemoForm().invalid() || parentDemoForm().pending()">
+              Sign in as parent
+            </button>
+          </div>
+        </form>
+
+        <p class="demo-hint"><strong>Prototype code:</strong> <code>{{ parentCodeHint }}</code></p>
+      }
+    </article>
+
+    <article class="panel panel--child">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Child sign in</p>
+          <h2>Open a child-only board</h2>
+        </div>
+        <p class="panel-copy">Children land directly in their own quest board so parent admin views stay hidden.</p>
+      </div>
+
+      @if (firebaseEnabled) {
+        <form class="login-form" (submit)="signInChildFirebase(); $event.preventDefault()">
+          <label class="field">
+            <span class="field__label">Child username or email</span>
+            <input
+              [formField]="childFirebaseForm.identifier"
+              (input)="clearChildError()"
+              autocomplete="username"
+              placeholder="avaquest"
+            />
+            @if (childFirebaseForm.identifier().touched() && childFirebaseForm.identifier().errors().length) {
+              <span class="field__error">{{ errorMessage(childFirebaseForm.identifier().errors()) }}</span>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input
+              type="password"
+              [formField]="childFirebaseForm.password"
+              (input)="clearChildError()"
+              autocomplete="current-password"
+              placeholder="Enter password"
+            />
+            @if (childFirebaseForm.password().touched() && childFirebaseForm.password().errors().length) {
+              <span class="field__error">{{ errorMessage(childFirebaseForm.password().errors()) }}</span>
+            }
+          </label>
+
+          @if (childError()) {
+            <span class="field__error">{{ childError() }}</span>
+          }
+
+          <div class="form-actions">
+            <button
+              type="submit"
+              class="primary-button primary-button--child"
+              [disabled]="!authReady() || childFirebaseForm().invalid() || childFirebaseForm().pending()"
+            >
+              Sign in with Firebase
+            </button>
+          </div>
+        </form>
+
+        <div class="demo-code-list" aria-label="Prototype child lane codes">
+          <span class="demo-code-list__label">Need a child login first?</span>
+          <p class="demo-code-list__copy">
+            Parents can now enable a child username from the child manager. Until every family flow is fully Firestore-backed,
+            the child lane still accepts direct email sign-in too.
+          </p>
+        </div>
+      } @else {
+        <form class="login-form" (submit)="signInChildDemo(); $event.preventDefault()">
+          <label class="field">
+            <span class="field__label">Child demo code</span>
+            <input
+              type="text"
+              [formField]="childDemoForm.code"
+              (input)="clearChildError()"
+              autocomplete="off"
+              placeholder="Enter child code"
+            />
+            @if (childDemoForm.code().touched() && childDemoForm.code().errors().length) {
+              <span class="field__error">{{ errorMessage(childDemoForm.code().errors()) }}</span>
+            }
+            @if (childError()) {
+              <span class="field__error">{{ childError() }}</span>
+            }
+          </label>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button primary-button--child" [disabled]="childDemoForm().invalid() || childDemoForm().pending()">
+              Sign in as child
+            </button>
+          </div>
+        </form>
+
+        <div class="demo-code-list" aria-label="Prototype child demo codes">
+          <span class="demo-code-list__label">Prototype codes</span>
+          <div class="demo-code-list__chips">
+            @for (code of childCodeHints(); track code) {
+              <code>{{ code }}</code>
+            }
+          </div>
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="shared-note">
+    <p class="eyebrow">Why this matters</p>
+    <h2>Sign in before showing family data</h2>
+    <p>
+      This keeps the Firebase transition clean: once a parent or child account is known, the app can safely decide
+      which lane to open before it renders family-specific data.
+    </p>
+  </section>
+</main>

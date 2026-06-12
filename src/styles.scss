@@ -1,0 +1,56 @@
+:root {
+  --brand-sky: #74c7ff;
+  --brand-sky-deep: #1f7ac9;
+  --brand-coral: #ff7b59;
+  --brand-coral-deep: #c55038;
+  --brand-sun: #ffd86b;
+  --brand-sun-deep: #a97700;
+  --brand-mint: #8ce8c8;
+  --brand-mint-deep: #15856b;
+  --brand-purple: #b39dff;
+  --warm-paper: #fffaf2;
+  --ink-900: #21304b;
+  --ink-800: #31415e;
+  --ink-700: #4b5d7c;
+  --ink-600: #657694;
+  --font-display: 'Avenir Next Rounded', 'Trebuchet MS', 'Gill Sans', sans-serif;
+  --font-body: 'Avenir Next', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(116, 199, 255, 0.55), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 216, 107, 0.52), transparent 32%),
+    linear-gradient(180deg, #fff8ec 0%, #f7fbff 48%, #fdf4ff 100%);
+}
+
+body {
+  min-height: 100dvh;
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--ink-900);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(140, 232, 200, 0.25), transparent 18%),
+    radial-gradient(circle at 85% 30%, rgba(179, 157, 255, 0.2), transparent 20%);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(31, 122, 201, 0.42);
+  outline-offset: 2px;
+}

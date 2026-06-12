@@ -1,0 +1,689 @@
+<main class="parent-admin-page">
+  <a class="back-link" routerLink="/">Back to family dashboard</a>
+
+  @if (lastSavedQuest(); as savedQuest) {
+    <section class="success-banner" role="status" aria-live="polite">
+      <strong>Quest {{ savedQuest.action }}:</strong> {{ savedQuest.title }} is now synced into the family quest board.
+    </section>
+  }
+
+  @if (lastBonusAward(); as bonusAward) {
+    <section class="success-banner success-banner--sky" role="status" aria-live="polite">
+      <strong>Bonus awarded:</strong> {{ bonusAward.childName }} received +{{ bonusAward.points }} for {{ bonusAward.note }}.
+    </section>
+  }
+
+  @if (lastOverrideAction(); as overrideAction) {
+    <section class="success-banner success-banner--violet" role="status" aria-live="polite">
+      <strong>Parent override:</strong> {{ overrideAction.childName }} · {{ overrideAction.questTitle }} · {{ overrideAction.statusLabel }}.
+    </section>
+  }
+
+  @if (actionError()) {
+    <section class="error-banner" role="alert" aria-live="assertive">
+      <strong>Quest sync issue:</strong> {{ actionError() }}
+    </section>
+  }
+
+  @if (rewardFeedback(); as feedback) {
+    <section
+      class="{{ feedback.kind === 'error' ? 'error-banner' : feedback.kind === 'warning' ? 'warning-banner' : 'success-banner success-banner--sky' }}"
+      [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <strong>
+        {{ feedback.kind === 'error' ? 'Reward sync issue:' : feedback.kind === 'warning' ? 'Reward heads up:' : 'Reward updated:' }}
+      </strong>
+      {{ feedback.text }}
+    </section>
+  }
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Parent Quest Manager</p>
+      <h1>Create the next family win</h1>
+      <p class="hero-message">
+        Build clear, encouraging quests that help responsibilities happen with less friction and more momentum.
+      </p>
+    </div>
+
+    <aside class="hero-callout" aria-label="Current planning context">
+      <p class="hero-callout__label">Planning in</p>
+      <h2>{{ activeMode().name }}</h2>
+      <p>{{ activeMode().description }}</p>
+      <p class="hero-callout__rule">{{ activeMode().defaultScreenTimeRule }}</p>
+    </aside>
+  </section>
+
+  <section class="stats-grid" aria-label="Parent quest manager summary">
+    @for (stat of quickStats(); track stat.label) {
+      <article class="stat-card">
+        <p class="stat-card__label">{{ stat.label }}</p>
+        <p class="stat-card__value">{{ stat.value }}</p>
+        <p class="stat-card__hint">{{ stat.hint }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="admin-layout">
+    <section class="main-column">
+      <article
+        #questEditorPanel
+        class="panel panel--editor"
+        [class.panel--editor-active]="editingQuest()"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">{{ editingQuest() ? 'Edit quest' : 'New quest' }}</p>
+            <h2>{{ editingQuest() ? 'Update this family quest' : 'Parent creation flow' }}</h2>
+          </div>
+          <p class="panel-copy">Keep the instructions short, the finish line clear, and the tone encouraging.</p>
+        </div>
+
+        <form class="quest-form" (submit)="onSubmit(); $event.preventDefault()">
+          <div class="field-grid">
+            <label class="field">
+              <span class="field__label">Quest title</span>
+              <input [formField]="questForm.title" placeholder="Launch pad room reset" />
+              @if (questForm.title().touched() && questForm.title().errors().length) {
+                <span class="field__error">{{ errorMessage(questForm.title().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Points</span>
+              <input type="number" step="1" [formField]="questForm.points" />
+              @if (questForm.points().touched() && questForm.points().errors().length) {
+                <span class="field__error">{{ errorMessage(questForm.points().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Short description</span>
+              <textarea [formField]="questForm.description" rows="3" placeholder="A clear one-line picture of what this quest is asking for."></textarea>
+              @if (questForm.description().touched() && questForm.description().errors().length) {
+                <span class="field__error">{{ errorMessage(questForm.description().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Category</span>
+              <select [formField]="questForm.category">
+                @for (option of QUEST_CATEGORY_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Recurrence</span>
+              <select [formField]="questForm.recurrence">
+                @for (option of RECURRENCE_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Difficulty</span>
+              <select [formField]="questForm.difficulty">
+                @for (option of DIFFICULTY_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Optional due date</span>
+              <input type="date" [formField]="questForm.dueDate" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Done definition</span>
+              <textarea [formField]="questForm.instructions" rows="3" placeholder="What does done look like when a child marks this complete?"></textarea>
+              @if (questForm.instructions().touched() && questForm.instructions().errors().length) {
+                <span class="field__error">{{ errorMessage(questForm.instructions().errors()) }}</span>
+              }
+            </label>
+          </div>
+
+          <div class="field-note">
+            <p><strong>{{ selectedCategory().label }}:</strong> {{ selectedCategory().hint }}</p>
+          </div>
+
+          <fieldset class="choice-group">
+            <legend>Assign to</legend>
+            <div class="choice-grid">
+              @for (child of children(); track childTrackBy($index, child)) {
+                <label class="choice-card" [style.--choice-accent]="child.themeColor">
+                  <input type="checkbox" [formField]="questForm.assignees[$index]" />
+                  <span class="choice-card__title">{{ child.name }}</span>
+                  <span class="choice-card__meta">Age {{ child.age }} · Level {{ child.level }}</span>
+                </label>
+              }
+              @if (usesParentSelfBoard()) {
+                <label class="choice-card">
+                  <input type="checkbox" [formField]="questForm.assignees[children().length]" />
+                  <span class="choice-card__title">Myself ({{ currentParentDisplayName() }})</span>
+                  <span class="choice-card__meta">Track this on your own board</span>
+                </label>
+              }
+            </div>
+
+            @if (questForm.assignees().touched() && questForm.assignees().errors().length) {
+              <p class="field__error">{{ errorMessage(questForm.assignees().errors()) }}</p>
+            }
+          </fieldset>
+
+          <fieldset class="choice-group">
+            <legend>Seasonal modes</legend>
+            <div class="choice-grid">
+              @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
+                <label class="choice-card choice-card--mode">
+                  <input type="checkbox" [formField]="questForm.activeModes[$index]" />
+                  <span class="choice-card__title">{{ mode.name }}</span>
+                  <span class="choice-card__meta">{{ mode.intensity }} intensity</span>
+                </label>
+              }
+            </div>
+
+            @if (questForm.activeModes().touched() && questForm.activeModes().errors().length) {
+              <p class="field__error">{{ errorMessage(questForm.activeModes().errors()) }}</p>
+            }
+          </fieldset>
+
+          <div class="toggle-grid">
+            <label class="toggle-card">
+              <input type="checkbox" [formField]="questForm.requiresApproval" />
+              <div>
+                <span class="toggle-card__title">Parent approval required</span>
+                <p>Best for chores, school checks, and life skills that need a quick look.</p>
+              </div>
+            </label>
+
+            @if (!bonusQuestSelected()) {
+              <label class="toggle-card">
+                <input type="checkbox" [formField]="questForm.requiredBeforeScreenTime" />
+                <div>
+                  <span class="toggle-card__title">Required before screen time</span>
+                  <p>Use this for core daily expectations that unlock privileges.</p>
+                </div>
+              </label>
+            } @else {
+              <div class="toggle-card toggle-card--note">
+                <div>
+                  <span class="toggle-card__title">Bonus quest guidance</span>
+                  <p>Bonus quests never block screen time. They add points and momentum without feeling punitive.</p>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="form-actions">
+            <div class="action-row">
+              <button type="submit" class="primary-button" [disabled]="questForm().invalid() || questForm().pending()">
+                {{ editingQuest() ? 'Save quest changes' : 'Add quest to family board' }}
+              </button>
+
+              @if (editingQuest()) {
+                <button type="button" class="danger-button" (click)="deleteEditingQuest()">Delete quest</button>
+                <button type="button" class="secondary-button" (click)="cancelEdit()">Cancel edit</button>
+              }
+            </div>
+
+            <p class="form-helper">
+              This updates the shared family quest board. Child boards and approval lanes will reflect changes right away.
+            </p>
+          </div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Parent flex tools</p>
+            <h2>Bonus points and overrides</h2>
+          </div>
+          <p class="panel-copy">
+            Use these only when you want to recognize above-and-beyond effort or gently correct the board without
+            turning the whole system punitive.
+          </p>
+        </div>
+
+        <div class="support-grid">
+          <section class="support-block">
+            <div class="support-block__heading">
+              <div>
+                <p class="eyebrow">Bonus moment</p>
+                <h3>Award points for a real win</h3>
+              </div>
+              <p>Great attitude, leadership, kindness, or extra effort can earn bonus points without changing privilege rules.</p>
+            </div>
+
+            <form class="bonus-form" (submit)="awardBonusPoints(); $event.preventDefault()">
+              <div class="field-grid">
+                <label class="field">
+                  <span class="field__label">Child</span>
+                  <select [formField]="bonusForm.childId">
+                    @for (child of children(); track childTrackBy($index, child)) {
+                      <option [value]="child.id">{{ child.name }}</option>
+                    }
+                  </select>
+                  @if (bonusForm.childId().touched() && bonusForm.childId().errors().length) {
+                    <span class="field__error">{{ errorMessage(bonusForm.childId().errors()) }}</span>
+                  }
+                </label>
+
+                <label class="field">
+                  <span class="field__label">Bonus points</span>
+                  <input type="number" step="1" [formField]="bonusForm.points" />
+                  @if (bonusForm.points().touched() && bonusForm.points().errors().length) {
+                    <span class="field__error">{{ errorMessage(bonusForm.points().errors()) }}</span>
+                  }
+                </label>
+
+                <label class="field field--full">
+                  <span class="field__label">Why it matters</span>
+                  <textarea
+                    [formField]="bonusForm.note"
+                    rows="3"
+                    placeholder="Example: leading the younger sibling with a great attitude"
+                  ></textarea>
+                  @if (bonusForm.note().touched() && bonusForm.note().errors().length) {
+                    <span class="field__error">{{ errorMessage(bonusForm.note().errors()) }}</span>
+                  }
+                </label>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-button" [disabled]="bonusForm().invalid() || bonusForm().pending()">
+                  Award bonus points
+                </button>
+                <p class="form-helper">Bonus points go straight into the child balance and show up in today’s momentum.</p>
+              </div>
+            </form>
+          </section>
+
+          <section class="support-block">
+            <div class="support-block__heading">
+              <div>
+                <p class="eyebrow">Child focus</p>
+                <h3>Pick a board to adjust</h3>
+              </div>
+              <p>Overrides help parents correct the family board when real life needs flexibility or a direct decision.</p>
+            </div>
+
+            <div class="focus-chip-list" role="list" aria-label="Choose child board">
+              @for (child of children(); track childTrackBy($index, child)) {
+                <button
+                  type="button"
+                  class="focus-chip"
+                  [class.focus-chip--active]="overrideChild()?.id === child.id"
+                  [style.--chip-accent]="child.themeColor"
+                  (click)="selectOverrideChild(child.id)"
+                >
+                  {{ child.name }}
+                </button>
+              }
+            </div>
+
+            @if (overrideBoard(); as overrideBoard) {
+              <div class="override-summary">
+                <article class="summary-card" [style.--summary-accent]="overrideBoard.child.themeColor">
+                  <span>Points banked</span>
+                  <strong>{{ overrideBoard.child.points }}</strong>
+                </article>
+                <article class="summary-card" [style.--summary-accent]="overrideBoard.child.themeColor">
+                  <span>Points today</span>
+                  <strong>{{ overrideBoard.summary.pointsToday }}</strong>
+                </article>
+                <article class="summary-card" [style.--summary-accent]="overrideBoard.child.themeColor">
+                  <span>Screen gate</span>
+                  <strong>
+                    {{
+                      overrideBoard.summary.screenTimeUnlocked
+                        ? 'Open'
+                        : overrideBoard.summary.remainingForScreenTime + ' left'
+                    }}
+                  </strong>
+                </article>
+              </div>
+
+              @if (overrideBoard.recentBonusMoments.length > 0) {
+                <div class="bonus-log">
+                  <p class="eyebrow">Recent bonus moments</p>
+                  <div class="bonus-log__list">
+                    @for (item of overrideBoard.recentBonusMoments; track item.moment.id) {
+                      <article class="bonus-log__card">
+                        <div>
+                          <strong>+{{ item.moment.points }}</strong>
+                          <span>{{ item.awardedLabel }}</span>
+                        </div>
+                        <p>{{ item.moment.note }}</p>
+                      </article>
+                    }
+                  </div>
+                </div>
+              }
+            }
+          </section>
+        </div>
+
+        @if (overrideBoard(); as overrideBoard) {
+          <div class="override-board">
+            <div class="panel-heading panel-heading--tight">
+              <div>
+                <p class="eyebrow">Today’s board override</p>
+                <h3>{{ overrideBoard.child.name }}</h3>
+              </div>
+              <p class="panel-copy">
+                Clear a quest, approve it directly, move it back to pending, or send it back for one more pass.
+              </p>
+            </div>
+
+            <div class="override-list">
+              @for (item of overrideBoard.items; track item.quest.id) {
+                <article class="preview-card override-card" [class.override-card--ready]="item.status === 'approved'">
+                  <div class="preview-card__top">
+                    <div>
+                      <p class="preview-card__eyebrow">{{ CATEGORY_LABELS[item.quest.category] }}</p>
+                      <h3>{{ item.quest.title }}</h3>
+                    </div>
+                    <span class="preview-points">+{{ item.quest.points }}</span>
+                  </div>
+
+                  <div class="preview-tags">
+                    <span class="preview-tag">{{ item.statusLabel }}</span>
+                    <span class="preview-tag">{{ DIFFICULTY_LABELS[item.quest.difficulty] }}</span>
+                    @if (item.quest.requiredBeforeScreenTime) {
+                      <span class="preview-tag preview-tag--sky">Before screens</span>
+                    }
+                  </div>
+
+                  <p>{{ item.note }}</p>
+
+                  <div class="override-actions">
+                    @if (item.canApprove) {
+                      <button
+                        type="button"
+                        class="primary-button primary-button--compact"
+                        (click)="overrideQuestStatus(overrideBoard.child.id, item.quest.id, 'approved')"
+                      >
+                        Approve now
+                      </button>
+                    }
+                    @if (item.canPending) {
+                      <button
+                        type="button"
+                        class="secondary-button"
+                        (click)="overrideQuestStatus(overrideBoard.child.id, item.quest.id, 'pending')"
+                      >
+                        Mark pending
+                      </button>
+                    }
+                    @if (item.canReject) {
+                      <button
+                        type="button"
+                        class="secondary-button"
+                        (click)="overrideQuestStatus(overrideBoard.child.id, item.quest.id, 'rejected')"
+                      >
+                        Send back
+                      </button>
+                    }
+                    @if (item.canClear) {
+                      <button
+                        type="button"
+                        class="danger-button danger-button--soft"
+                        (click)="overrideQuestStatus(overrideBoard.child.id, item.quest.id, 'open')"
+                      >
+                        Clear today
+                      </button>
+                    }
+                  </div>
+                </article>
+              }
+            </div>
+          </div>
+        }
+      </article>
+    </section>
+
+    <aside class="side-column">
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Parent review</p>
+            <h2>Approval queue</h2>
+          </div>
+          <p class="panel-copy">Quick sign-off stays separate from point editing so the board still feels fair and encouraging.</p>
+        </div>
+
+        @if (approvalQueue().length > 0) {
+          <div class="approval-summary" aria-label="Approval queue summary">
+            @for (stat of approvalHighlights(); track stat.label) {
+              <div class="approval-summary__item">
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+              </div>
+            }
+          </div>
+
+          <div class="review-groups">
+            @for (group of approvalGroups(); track group.child.id) {
+              <section class="review-group">
+                <header class="review-group__header" [style.--group-accent]="group.child.themeColor">
+                  <div class="review-group__identity">
+                    <div class="review-group__avatar" [style.background]="group.child.themeColor">
+                      {{ group.child.avatar }}
+                    </div>
+
+                    <div>
+                      <h3>{{ group.child.name }}</h3>
+                      <p>{{ group.items.length }} waiting · {{ group.totalPoints }} points in review</p>
+                    </div>
+                  </div>
+
+                  @if (group.unlockCount > 0) {
+                    <span class="preview-tag preview-tag--mint">{{ group.unlockCount }} can unlock screens</span>
+                  }
+                </header>
+
+                <div class="review-list">
+                  @for (item of group.items; track item.completion.id) {
+                    <article class="preview-card review-card" [class.review-card--unlock]="item.unlocksScreenTime">
+                      <div class="preview-card__top">
+                        <div>
+                          <p class="preview-card__eyebrow">{{ CATEGORY_LABELS[item.quest.category] }}</p>
+                          <h3>{{ item.quest.title }}</h3>
+                        </div>
+                        <span class="preview-points">+{{ item.quest.points }}</span>
+                      </div>
+
+                      <div class="preview-tags">
+                        <span class="preview-tag">{{ DIFFICULTY_LABELS[item.quest.difficulty] }}</span>
+                        <span class="preview-tag">{{ item.completedLabel }}</span>
+                        @if (item.quest.requiredBeforeScreenTime) {
+                          <span class="preview-tag preview-tag--sky">Before screens</span>
+                        }
+                        @if (item.unlocksScreenTime) {
+                          <span class="preview-tag preview-tag--mint">Unlocks screen time</span>
+                        }
+                      </div>
+
+                      <p><strong>Child note:</strong> {{ item.completion.notes }}</p>
+                      <p><strong>Done looks like:</strong> {{ item.quest.instructions }}</p>
+                      <p class="review-impact" [class.review-impact--unlock]="item.unlocksScreenTime">{{ item.impactLabel }}</p>
+
+                      <div class="review-actions">
+                        <button type="button" class="primary-button primary-button--compact" (click)="approveCompletion(item.completion.id)">
+                          Approve +{{ item.quest.points }}
+                        </button>
+                        <button type="button" class="secondary-button" (click)="rejectCompletion(item.completion.id)">
+                          Ask for another pass
+                        </button>
+                      </div>
+                    </article>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>All reviewed for now</h3>
+            <p>The queue is clear. New quest reports will show up here as kids submit them.</p>
+          </div>
+        }
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Live preview</p>
+            <h2>Quest library</h2>
+          </div>
+          <p class="panel-copy">Edit or prune quests directly from the live library while we keep the parent flow tight and useful.</p>
+        </div>
+
+        <div class="preview-list">
+          @for (item of questLibrary(); track item.quest.id) {
+            <article
+              class="preview-card"
+              [class.preview-card--editing]="editingQuestId() === item.quest.id"
+            >
+              <div class="preview-card__top">
+                <div>
+                  <p class="preview-card__eyebrow">{{ CATEGORY_LABELS[item.quest.category] }}</p>
+                  <h3>{{ item.quest.title }}</h3>
+                </div>
+                <div class="preview-card__actions">
+                  <span class="preview-points">+{{ item.quest.points }}</span>
+                  <button
+                    type="button"
+                    class="inline-button"
+                    [class.inline-button--active]="editingQuestId() === item.quest.id"
+                    [attr.aria-pressed]="editingQuestId() === item.quest.id"
+                    (click)="startEdit(item.quest.id)"
+                  >
+                    {{ editingQuestId() === item.quest.id ? 'Editing' : 'Edit' }}
+                  </button>
+                </div>
+              </div>
+
+              <p>{{ item.quest.description }}</p>
+
+              <div class="preview-tags">
+                <span class="preview-tag">{{ DIFFICULTY_LABELS[item.quest.difficulty] }}</span>
+                <span class="preview-tag">{{ RECURRENCE_LABELS[item.quest.recurrence] }}</span>
+                @if (item.quest.requiresApproval) {
+                  <span class="preview-tag preview-tag--violet">Needs parent approval</span>
+                }
+                @if (item.quest.requiredBeforeScreenTime) {
+                  <span class="preview-tag preview-tag--sky">Before screens</span>
+                }
+                @if (item.liveInCurrentMode) {
+                  <span class="preview-tag preview-tag--mint">Live in {{ activeMode().name }}</span>
+                }
+              </div>
+
+              <p class="preview-meta"><strong>Assigned:</strong> {{ item.assigneeNames.join(', ') }}</p>
+              <p class="preview-meta"><strong>Modes:</strong> {{ item.modeNames.join(', ') }}</p>
+              <p class="preview-meta"><strong>Done looks like:</strong> {{ item.quest.instructions }}</p>
+              @if (item.quest.dueDate) {
+                <p class="preview-meta"><strong>Due:</strong> {{ item.quest.dueDate }}</p>
+              }
+            </article>
+          }
+        </div>
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Reward review</p>
+            <h2>Reward requests</h2>
+          </div>
+          <p class="panel-copy">Points are already reserved when a child requests a reward, so declining should feel clear and fair.</p>
+        </div>
+
+        @if (rewardRequestQueue().length > 0) {
+          <div class="approval-summary approval-summary--rewards" aria-label="Reward request summary">
+            @for (stat of rewardRequestHighlights(); track stat.label) {
+              <div class="approval-summary__item">
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+              </div>
+            }
+          </div>
+
+          <div class="review-groups">
+            @for (group of rewardRequestGroups(); track group.child.id) {
+              <section class="review-group">
+                <header class="review-group__header">
+                  <div class="review-group__identity">
+                    <div class="review-group__avatar" [style.background]="group.child.themeColor">
+                      {{ group.child.avatar }}
+                    </div>
+
+                    <div>
+                      <h3>{{ group.child.name }}</h3>
+                      <p>{{ group.items.length }} request{{ group.items.length === 1 ? '' : 's' }} · {{ group.reservedPoints }} points reserved</p>
+                    </div>
+                  </div>
+                </header>
+
+                <div class="review-list">
+                  @for (item of group.items; track item.redemption.id) {
+                    <article class="preview-card review-card review-card--reward">
+                      <div class="preview-card__top">
+                        <div>
+                          <p class="preview-card__eyebrow">{{ REWARD_TYPE_LABELS[item.reward.type] }}</p>
+                          <h3>{{ item.reward.title }}</h3>
+                        </div>
+                        <span class="preview-points">-{{ item.redemption.pointCost }}</span>
+                      </div>
+
+                      <div class="preview-tags">
+                        <span class="preview-tag">{{ item.requestedLabel }}</span>
+                        @if (item.reward.requiresParentApproval) {
+                          <span class="preview-tag preview-tag--violet">Needs parent review</span>
+                        }
+                      </div>
+
+                      <p>{{ item.redemption.note }}</p>
+                      <p class="review-impact">{{ item.impactLabel }}</p>
+
+                      <div class="review-actions">
+                        <button
+                          type="button"
+                          class="primary-button primary-button--compact"
+                          [disabled]="pendingRewardRequestId() === item.redemption.id"
+                          (click)="approveRewardRequest(item.redemption.id)"
+                        >
+                          {{ pendingRewardRequestId() === item.redemption.id ? 'Saving...' : 'Approve reward' }}
+                        </button>
+                        <button
+                          type="button"
+                          class="secondary-button"
+                          [disabled]="pendingRewardRequestId() === item.redemption.id"
+                          (click)="declineRewardRequest(item.redemption.id)"
+                        >
+                          {{ pendingRewardRequestId() === item.redemption.id ? 'Saving...' : 'Decline and refund' }}
+                        </button>
+                      </div>
+                    </article>
+                  }
+                </div>
+              </section>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>No reward requests waiting</h3>
+            <p>New reward requests will show up here once kids start spending points from the reward store.</p>
+          </div>
+        }
+      </article>
+    </aside>
+  </section>
+</main>

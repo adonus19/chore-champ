@@ -1,0 +1,252 @@
+<main class="privileges-page">
+  <a class="back-link" routerLink="/">Back to family dashboard</a>
+
+  @if (actionFeedback(); as feedback) {
+    <section
+      class="feedback-banner"
+      [class.feedback-banner--error]="feedback.kind === 'error'"
+      [class.feedback-banner--warning]="feedback.kind === 'warning'"
+      [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <strong>
+        {{ feedback.kind === 'error' ? 'Privilege sync issue:' : feedback.kind === 'warning' ? 'Privilege heads up:' : 'Privilege updated:' }}
+      </strong>
+      {{ feedback.text }}
+    </section>
+  }
+
+  @if (privilegeRulesSyncError()) {
+    <section class="feedback-banner feedback-banner--warning" role="status" aria-live="polite">
+      <strong>Privilege sync warning:</strong> {{ privilegeRulesSyncError() }}
+    </section>
+  }
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Privilege settings</p>
+      <h1>Keep recreation clear and fair</h1>
+      <p class="hero-message">
+        Privileges stay separate from rewards. This editor keeps screen time, friend plans, and other family extras
+        grounded in readiness, attitude, and real-world context.
+      </p>
+    </div>
+
+    <aside class="hero-callout">
+      <p class="hero-callout__label">Current rhythm</p>
+      <h2>{{ activeMode().name }}</h2>
+      <p>{{ activeMode().defaultScreenTimeRule }}</p>
+      <a class="inline-link" routerLink="/parent/modes">Open seasonal mode editor</a>
+    </aside>
+  </section>
+
+  <section class="stats-grid" aria-label="Privilege settings summary">
+    @for (stat of quickStats(); track stat.label) {
+      <article class="stat-card">
+        <p class="stat-card__label">{{ stat.label }}</p>
+        <p class="stat-card__value">{{ stat.value }}</p>
+        <p class="stat-card__hint">{{ stat.hint }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="admin-layout">
+    <section class="main-column">
+      @if (selectedRule(); as rule) {
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Edit {{ selectedRuleMeta().label }}</p>
+              <h2>{{ rule.title }}</h2>
+            </div>
+            <p class="panel-copy">
+              Keep the wording calm, specific, and age-appropriate so the family always knows what keeps this privilege
+              in the green.
+            </p>
+          </div>
+
+          <div class="status-row">
+            <span class="status-pill" [style.--status-accent]="selectedRuleMeta().accent">
+              {{ selectedRuleMeta().label }}
+            </span>
+            <span class="status-pill" [class.status-pill--active]="rule.activeModes.includes(activeMode().id)">
+              {{ rule.activeModes.includes(activeMode().id) ? 'Live in current mode' : 'Hidden in current mode' }}
+            </span>
+            <span class="status-pill">{{ rule.activeModes.length }} mode{{ rule.activeModes.length === 1 ? '' : 's' }}</span>
+          </div>
+
+          <form class="privilege-form" (submit)="saveRuleChanges(); $event.preventDefault()">
+            <div class="field-grid">
+              <label class="field">
+                <span class="field__label">Rule title</span>
+                <input [formField]="privilegeRuleForm.title" placeholder="Screen time unlock" />
+                @if (privilegeRuleForm.title().touched() && privilegeRuleForm.title().errors().length) {
+                  <span class="field__error">{{ errorMessage(privilegeRuleForm.title().errors()) }}</span>
+                }
+              </label>
+
+              <label class="field field--full">
+                <span class="field__label">Requirements</span>
+                <textarea
+                  [formField]="privilegeRuleForm.requirementLines"
+                  rows="6"
+                  placeholder="One requirement per line"
+                ></textarea>
+                @if (privilegeRuleForm.requirementLines().touched() && privilegeRuleForm.requirementLines().errors().length) {
+                  <span class="field__error">{{ errorMessage(privilegeRuleForm.requirementLines().errors()) }}</span>
+                }
+              </label>
+            </div>
+
+            <div class="field-note">
+              <p><strong>{{ selectedRuleMeta().label }}:</strong> {{ selectedRuleMeta().hint }}</p>
+            </div>
+
+            <fieldset class="choice-group">
+              <legend>Seasonal modes</legend>
+              <div class="choice-grid">
+                @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
+                  <label class="choice-card" [style.--choice-accent]="selectedRuleMeta().accent">
+                    <input type="checkbox" [formField]="privilegeRuleForm.activeModes[$index]" />
+                    <span class="choice-card__title">{{ mode.name }}</span>
+                    <span class="choice-card__meta">{{ mode.intensity }} intensity</span>
+                  </label>
+                }
+              </div>
+
+              @if (privilegeRuleForm.activeModes().touched() && privilegeRuleForm.activeModes().errors().length) {
+                <p class="field__error">{{ errorMessage(privilegeRuleForm.activeModes().errors()) }}</p>
+              }
+            </fieldset>
+
+            <div class="form-actions">
+              <div class="action-row">
+                <button
+                  type="submit"
+                  class="primary-button"
+                  [disabled]="
+                    privilegeRuleForm().invalid() ||
+                    privilegeRuleForm().pending() ||
+                    !editorDirty() ||
+                    pendingRuleId() === rule.id
+                  "
+                >
+                  {{ pendingRuleId() === rule.id ? 'Saving privilege rule...' : 'Save privilege rule' }}
+                </button>
+                <button
+                  type="button"
+                  class="secondary-button"
+                  [disabled]="!editorDirty() || pendingRuleId() === rule.id"
+                  (click)="resetRuleEditor()"
+                >
+                  Reset changes
+                </button>
+              </div>
+
+              <p class="form-helper">
+                Signed-in household accounts save this to Firestore. Demo mode keeps it local to this browser, and in
+                both cases the child reminders and dashboard guidance refresh right away.
+              </p>
+            </div>
+          </form>
+        </article>
+      }
+    </section>
+
+    <aside class="side-column">
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Rule picker</p>
+            <h2>Privilege library</h2>
+          </div>
+          <p class="panel-copy">Pick a rule to edit, then decide which seasonal modes it should stay live in.</p>
+        </div>
+
+        <div class="rule-grid">
+          @for (card of ruleCards(); track card.rule.id) {
+            <button
+              type="button"
+              class="rule-card"
+              [class.rule-card--selected]="card.isSelected"
+              [style.--rule-accent]="card.meta.accent"
+              (click)="previewRule(card.rule.id)"
+            >
+              <div class="rule-card__top">
+                <div>
+                  <p class="rule-card__eyebrow">{{ card.meta.label }}</p>
+                  <h3>{{ card.rule.title }}</h3>
+                </div>
+                <span class="rule-card__badge">{{ card.requirementCount }}</span>
+              </div>
+
+              <div class="rule-card__tags">
+                <span class="preview-tag" [class.preview-tag--mint]="card.activeInCurrentMode">
+                  {{ card.activeInCurrentMode ? 'Live now' : 'Not live now' }}
+                </span>
+                <span class="preview-tag">{{ card.activeModeCount }} mode{{ card.activeModeCount === 1 ? '' : 's' }}</span>
+              </div>
+            </button>
+          }
+        </div>
+      </article>
+
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Screen-time preview</p>
+            <h2>What today looks like</h2>
+          </div>
+          <p class="panel-copy">This keeps the settings grounded in the live family board instead of floating as abstract rules.</p>
+        </div>
+
+        @if (currentScreenTimeRule(); as rule) {
+          <div class="screen-rule">
+            <h3>{{ rule.title }}</h3>
+            <ul class="rule-list">
+              @for (requirement of rule.requirements; track requirement) {
+                <li>{{ requirement }}</li>
+              }
+            </ul>
+          </div>
+        } @else {
+          <div class="empty-state">
+            <h3>Parent-guided screen time</h3>
+            <p>This mode does not currently use the standard screen-time privilege rule, so parent flexibility leads.</p>
+          </div>
+        }
+
+        <div class="child-preview-list">
+          @for (preview of childGatePreviews(); track preview.child.id) {
+            <article class="child-preview-card" [style.--card-accent]="preview.child.themeColor">
+              <div class="child-preview-card__top">
+                <div class="child-preview-card__identity">
+                  <div class="child-preview-card__avatar" [style.background]="preview.child.themeColor">
+                    {{ preview.child.avatar }}
+                  </div>
+
+                  <div>
+                    <h3>{{ preview.child.name }}</h3>
+                    <p>{{ preview.summary.completedRequired }}/{{ preview.summary.totalRequired }} must-do complete</p>
+                  </div>
+                </div>
+
+                <span
+                  class="child-preview-card__status"
+                  [class.child-preview-card__status--ready]="preview.statusClass === 'ready'"
+                  [class.child-preview-card__status--pending]="preview.statusClass === 'pending'"
+                  [class.child-preview-card__status--flex]="preview.statusClass === 'flex'"
+                >
+                  {{ preview.statusLabel }}
+                </span>
+              </div>
+
+              <p>{{ preview.message }}</p>
+              <p class="preview-meta"><strong>Next up:</strong> {{ preview.summary.nextFocus }}</p>
+            </article>
+          }
+        </div>
+      </article>
+    </aside>
+  </section>
+</main>

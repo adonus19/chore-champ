@@ -1,0 +1,31 @@
+<div class="app-shell">
+  <header class="shell-bar">
+    <div class="shell-brand">
+      <a class="shell-brand__mark" [routerLink]="brandLink()">Chore Champ</a>
+
+      <div>
+        <p class="shell-brand__eyebrow">Family Quest Board</p>
+        <p class="shell-brand__title">{{ shellTitle() }}</p>
+      </div>
+    </div>
+
+    <div class="viewer-badge" [style.--viewer-accent]="activeViewerBadge().themeColor">
+      <p class="viewer-badge__label">{{ activeViewerBadge().label }}</p>
+      <p class="viewer-badge__helper">{{ activeViewerBadge().helper }}</p>
+    </div>
+
+    <nav class="shell-nav" aria-label="App navigation">
+      @for (link of navLinks(); track link.path) {
+        <a class="shell-nav__link" [class.shell-nav__link--strong]="link.strong" [routerLink]="link.path">
+          {{ link.label }}
+        </a>
+      }
+
+      @if (isSignedIn()) {
+        <button type="button" class="shell-nav__button" (click)="signOut()">Sign out</button>
+      }
+    </nav>
+  </header>
+
+  <router-outlet />
+</div>

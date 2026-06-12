@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ChoreChamp</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ff7b59" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script>
+      (function (location) {
+        if (location.search.startsWith('?/')) {
+          const decoded = location.search
+            .slice(2)
+            .split('&')
+            .map(function (segment, index) {
+              return (index === 0 ? segment : '?' + segment).replace(/~and~/g, '&');
+            })
+            .join('');
+
+          window.history.replaceState(null, '', location.pathname + decoded + location.hash);
+        }
+      })(window.location);
+    </script>
+  </head>
+  <body>
+    <app-root></app-root>
+    <noscript>Please enable JavaScript to continue using this application.</noscript>
+  </body>
+</html>

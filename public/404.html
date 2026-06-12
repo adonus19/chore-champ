@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ChoreChamp</title>
+    <meta name="robots" content="noindex" />
+    <script>
+      (function () {
+        var pathSegmentsToKeep = 1;
+        var location = window.location;
+        var basePath = location.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/');
+        var routePath = location.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/');
+        var search = location.search ? '&' + location.search.slice(1).replace(/&/g, '~and~') : '';
+        var redirectUrl =
+          location.protocol +
+          '//' +
+          location.host +
+          basePath +
+          '/?/' +
+          routePath.replace(/&/g, '~and~') +
+          search +
+          location.hash;
+
+        location.replace(redirectUrl);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

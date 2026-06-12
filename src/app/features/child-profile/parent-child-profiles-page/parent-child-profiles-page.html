@@ -1,0 +1,610 @@
+<main class="parent-child-profiles-page">
+  <a class="back-link" routerLink="/">Back to family dashboard</a>
+
+  @if (householdSwitchFeedback(); as feedback) {
+    <section
+      class="feedback-banner"
+      [class.feedback-banner--error]="feedback.kind === 'error'"
+      [class.feedback-banner--warning]="feedback.kind === 'warning'"
+      [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+      aria-live="polite"
+    >
+      <strong>
+        {{
+          feedback.kind === 'error'
+            ? 'Household access issue:'
+            : feedback.kind === 'warning'
+              ? 'Household heads up:'
+              : 'Household action saved:'
+        }}
+      </strong>
+      {{ feedback.text }}
+    </section>
+  }
+
+  @if (lastSavedChild(); as savedChild) {
+    <section class="success-banner" role="status" aria-live="polite">
+      @if (savedChild.action === 'loginEnabled') {
+        <strong>Login enabled:</strong>
+        {{ savedChild.name }} can now sign in from the child lane with their new username and password.
+      } @else {
+        <strong>Profile {{ savedChild.action }}:</strong>
+        {{ savedChild.name }} is now updated in the {{ savedChild.source === 'firebase' ? 'Firestore household roster' : 'local family roster' }}.
+      }
+    </section>
+  }
+
+  <section class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Parent Child Manager</p>
+      <h1>Shape the family roster</h1>
+      <p class="hero-message">
+        Create and tune child profiles so the app feels like your real family quest board instead of fixed demo cards.
+      </p>
+    </div>
+
+    <aside class="hero-callout" aria-label="Current family context">
+      <p class="hero-callout__label">Joining in</p>
+      <h2>{{ activeMode().name }}</h2>
+      <p>New profiles join the family in the current seasonal rhythm and can start using quests, goals, journal, and rewards right away.</p>
+      <p class="hero-callout__rule">{{ activeMode().defaultScreenTimeRule }}</p>
+    </aside>
+  </section>
+
+  <section class="stats-grid" aria-label="Child profile manager summary">
+    @for (stat of quickStats(); track stat.label) {
+      <article class="stat-card">
+        <p class="stat-card__label">{{ stat.label }}</p>
+        <p class="stat-card__value">{{ stat.value }}</p>
+        <p class="stat-card__hint">{{ stat.hint }}</p>
+      </article>
+    }
+  </section>
+
+  <section class="admin-layout">
+    <section class="main-column">
+      <article class="panel">
+        <div class="panel-heading">
+          <div>
+            @if (profileKind() === 'parent') {
+              <p class="eyebrow">New co-parent</p>
+              <h2>Add a parent to this household</h2>
+            } @else {
+              <p class="eyebrow">{{ editingChild() ? 'Edit child' : 'New child' }}</p>
+              <h2>{{ editingChild() ? 'Update this child profile' : 'Create a child profile' }}</h2>
+            }
+          </div>
+          <p class="panel-copy">
+            @if (profileKind() === 'parent') {
+              Invite the other parent so they can set quests and goals for themselves too. We'll generate an easy
+              temporary password they can change later.
+            } @else {
+              Keep this simple and warm. Identity details matter because they shape every child-facing screen in the app.
+              {{ usesFirebaseChildProfiles() ? 'This signed-in parent lane now saves child profile changes to Firestore.' : 'This still updates local demo data only.' }}
+            }
+          </p>
+        </div>
+
+        @if (usesFirebaseChildProfiles() && !editingChild()) {
+          <div class="profile-kind-toggle" role="group" aria-label="Choose who you are adding">
+            <button
+              type="button"
+              class="profile-kind-toggle__option"
+              [class.profile-kind-toggle__option--active]="profileKind() === 'child'"
+              [attr.aria-pressed]="profileKind() === 'child'"
+              (click)="setProfileKind('child')"
+            >
+              Child
+            </button>
+            <button
+              type="button"
+              class="profile-kind-toggle__option"
+              [class.profile-kind-toggle__option--active]="profileKind() === 'parent'"
+              [attr.aria-pressed]="profileKind() === 'parent'"
+              (click)="setProfileKind('parent')"
+            >
+              Parent
+            </button>
+          </div>
+        }
+
+        @if (profileKind() === 'parent') {
+          @if (invitedParent(); as invited) {
+            <section class="invite-result" role="status" aria-live="polite">
+              <div class="invite-result__heading">
+                <div>
+                  <p class="eyebrow">Co-parent added</p>
+                  <h3>{{ invited.displayName }} can sign in now</h3>
+                </div>
+                <button type="button" class="inline-button" (click)="dismissInvitedParent()">Dismiss</button>
+              </div>
+
+              <p class="invite-result__copy">
+                Share these starter credentials with {{ invited.displayName }}. They sign in from the parent door on the
+                login screen, then can set quests and goals for themselves. Have them change this password from a reset
+                flow when that lands.
+              </p>
+
+              <dl class="invite-result__creds">
+                <div>
+                  <dt>Email</dt>
+                  <dd><code>{{ invited.email }}</code></dd>
+                </div>
+                <div>
+                  <dt>Temporary password</dt>
+                  <dd><code>{{ invited.tempPassword }}</code></dd>
+                </div>
+              </dl>
+            </section>
+          }
+
+          <form class="child-form" (submit)="onInviteParent(); $event.preventDefault()">
+            <div class="field-grid">
+              <label class="field field--full">
+                <span class="field__label">Parent name</span>
+                <input [formField]="parentForm.displayName" (input)="clearInviteError()" placeholder="Jordan" />
+                @if (parentForm.displayName().touched() && parentForm.displayName().errors().length) {
+                  <span class="field__error">{{ errorMessage(parentForm.displayName().errors()) }}</span>
+                }
+              </label>
+
+              <label class="field field--full">
+                <span class="field__label">Sign-in email</span>
+                <input
+                  type="email"
+                  [formField]="parentForm.email"
+                  (input)="clearInviteError()"
+                  autocomplete="off"
+                  placeholder="jordan@example.com"
+                />
+                <span class="field__hint">This is the email the co-parent will use at the parent login door.</span>
+                @if (parentForm.email().touched() && parentForm.email().errors().length) {
+                  <span class="field__error">{{ errorMessage(parentForm.email().errors()) }}</span>
+                }
+              </label>
+
+              <label class="field field--full">
+                <span class="field__label">Theme color</span>
+                <input type="color" [formField]="parentForm.themeColor" (input)="clearInviteError()" />
+              </label>
+            </div>
+
+            @if (inviteError()) {
+              <span class="field__error field__error--banner">{{ inviteError() }}</span>
+            }
+
+            <div class="form-actions">
+              <div class="action-row">
+                <button type="submit" class="primary-button" [disabled]="parentForm().invalid() || parentForm().pending()">
+                  {{ parentForm().pending() ? 'Adding parent...' : 'Generate password & add parent' }}
+                </button>
+              </div>
+
+              <p class="form-helper">
+                This creates a full co-parent: they can manage children, quests, rewards, child logins, and invite more
+                parents. Only you (the household owner) will be able to remove parents in a later flow.
+              </p>
+            </div>
+          </form>
+        } @else {
+
+        <form class="child-form" (submit)="onSubmit(); $event.preventDefault()">
+          <div class="field-grid">
+            <label class="field">
+              <span class="field__label">Name</span>
+              <input [formField]="childForm.name" (input)="clearSaveError()" placeholder="Ava" />
+              @if (childForm.name().touched() && childForm.name().errors().length) {
+                <span class="field__error">{{ errorMessage(childForm.name().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Age</span>
+              <input type="number" step="1" [formField]="childForm.age" (input)="clearSaveError()" />
+              @if (childForm.age().touched() && childForm.age().errors().length) {
+                <span class="field__error">{{ errorMessage(childForm.age().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Avatar letters</span>
+              <input [formField]="childForm.avatar" (input)="clearSaveError()" placeholder="AV" />
+              @if (childForm.avatar().touched() && childForm.avatar().errors().length) {
+                <span class="field__error">{{ errorMessage(childForm.avatar().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Theme color</span>
+              <input type="color" [formField]="childForm.themeColor" (input)="clearSaveError()" />
+              @if (childForm.themeColor().touched() && childForm.themeColor().errors().length) {
+                <span class="field__error">{{ errorMessage(childForm.themeColor().errors()) }}</span>
+              }
+            </label>
+
+            <label class="field">
+              <span class="field__label">Level</span>
+              <input type="number" step="1" [formField]="childForm.level" (input)="clearSaveError()" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Points</span>
+              <input type="number" step="1" [formField]="childForm.points" (input)="clearSaveError()" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Streak days</span>
+              <input type="number" step="1" [formField]="childForm.streakDays" (input)="clearSaveError()" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Current book</span>
+              <input [formField]="childForm.currentBook" (input)="clearSaveError()" placeholder="The Vanderbeekers" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Current life skill</span>
+              <input [formField]="childForm.currentLifeSkill" (input)="clearSaveError()" placeholder="Laundry start to finish" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Sports goal</span>
+              <input [formField]="childForm.sportsGoal" (input)="clearSaveError()" placeholder="50 clean serves in a row" />
+            </label>
+
+            <label class="field field--full">
+              <span class="field__label">Year goal</span>
+              <input [formField]="childForm.yearGoal" (input)="clearSaveError()" placeholder="Finish 12 books" />
+            </label>
+          </div>
+
+          @if (saveError()) {
+            <span class="field__error field__error--banner">{{ saveError() }}</span>
+          }
+
+          <div class="form-actions">
+            <div class="action-row">
+              <button type="submit" class="primary-button" [disabled]="childForm().invalid() || childForm().pending()">
+                {{ editingChild() ? 'Save child profile' : 'Add child profile' }}
+              </button>
+
+              @if (editingChild()) {
+                <button type="button" class="secondary-button" (click)="cancelEdit()">Cancel edit</button>
+              }
+            </div>
+
+            <p class="form-helper">
+              {{
+                usesFirebaseChildProfiles()
+                  ? 'This household now saves child profile changes to Firestore, and the current quest-board prototype updates right away on this device.'
+                  : 'This updates local mock family data only. Child-facing profile, goals, journal, and today screens will reflect the changes immediately.'
+              }}
+            </p>
+          </div>
+        </form>
+        }
+      </article>
+
+      @if (usesFirebaseChildProfiles()) {
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Shared child access</p>
+              <h2>Add an existing child to this household</h2>
+            </div>
+            <p class="panel-copy">
+              Create a child household link code from the source household, then accept it here so this same child identity
+              can belong to both homes without creating a second account.
+            </p>
+          </div>
+
+          @if (latestCreatedLink(); as latestLink) {
+            <article class="link-code-card">
+              <div class="link-code-card__top">
+                <div>
+                  <p class="eyebrow">Latest code on this device</p>
+                  <h3>{{ latestLink.childName }}</h3>
+                </div>
+                <button type="button" class="inline-button" (click)="useLatestChildLinkCode()">Use this code</button>
+              </div>
+
+              <p class="link-code-card__copy">
+                If you're testing on one device, switch to the receiving parent account and paste this code into the form below.
+              </p>
+
+              <div class="link-code-card__value">
+                <code>{{ latestLink.code }}</code>
+              </div>
+
+              <p class="link-code-card__meta">Expires {{ latestLink.expiresAtLabel }}</p>
+            </article>
+          }
+
+          <form class="child-form" (submit)="onAcceptChildHouseholdLink(); $event.preventDefault()">
+            <div class="field-grid">
+              <label class="field field--full">
+                <span class="field__label">Child household link code</span>
+                <input
+                  [formField]="acceptLinkForm.code"
+                  (input)="clearAcceptLinkError()"
+                  autocomplete="off"
+                  placeholder="ABCDE-FGHIJ"
+                />
+                <span class="field__hint">
+                  The source household parent creates this code from the child card on their roster.
+                </span>
+                @if (acceptLinkForm.code().touched() && acceptLinkForm.code().errors().length) {
+                  <span class="field__error">{{ errorMessage(acceptLinkForm.code().errors()) }}</span>
+                }
+              </label>
+
+              <label class="field field--full">
+                <span class="field__label">Switching style for this household</span>
+                <select [formField]="acceptLinkForm.householdSwitchPolicy" (change)="clearAcceptLinkError()">
+                  @for (option of childLinkPolicyOptions; track option.value) {
+                    <option [value]="option.value">{{ option.label }}</option>
+                  }
+                </select>
+                <span class="field__hint">
+                  {{
+                    childLinkPolicyOptions.find((option) => option.value === acceptLinkForm().value().householdSwitchPolicy)?.description
+                  }}
+                </span>
+              </label>
+            </div>
+
+            @if (acceptLinkError()) {
+              <span class="field__error field__error--banner">{{ acceptLinkError() }}</span>
+            }
+
+            <div class="form-actions">
+              <div class="action-row">
+                <button
+                  type="submit"
+                  class="primary-button"
+                  [disabled]="acceptLinkForm().invalid() || acceptLinkForm().pending()"
+                >
+                  Add child to this household
+                </button>
+
+                @if (canUseLatestLinkCode()) {
+                  <button type="button" class="secondary-button" (click)="useLatestChildLinkCode()">Use latest code</button>
+                }
+              </div>
+
+              <p class="form-helper">
+                After the child is linked here, the roster card can point a login-enabled child account into this house
+                without duplicating the child profile.
+              </p>
+            </div>
+          </form>
+        </article>
+      }
+    </section>
+
+    <aside class="side-column">
+      <article class="panel panel--compact">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Roster preview</p>
+            <h2>Current child profiles</h2>
+          </div>
+          <p class="panel-copy">
+            {{
+              usesFirebaseChildProfiles()
+                ? 'This signed-in parent household now reads the child roster from Firestore.'
+                : 'This keeps parent edits visible right away so we can tune the setup experience before real persistence lands.'
+            }}
+          </p>
+        </div>
+
+        <div class="preview-list">
+          @for (item of childCards(); track item.child.id) {
+            <article
+              class="preview-card"
+              [class.preview-card--active]="loginChildId() === item.child.id"
+              [style.--card-accent]="item.child.themeColor"
+            >
+              <div class="preview-card__top">
+                <div class="preview-card__identity">
+                  <div class="preview-card__avatar" [style.background]="item.child.themeColor">
+                    {{ item.child.avatar }}
+                  </div>
+
+                  <div>
+                    <h3>{{ item.child.name }}</h3>
+                    <p>Age {{ item.child.age }} · Level {{ item.child.level }}</p>
+                  </div>
+                </div>
+
+                <button type="button" class="inline-button" (click)="startEdit(item.child.id)">Edit</button>
+              </div>
+
+              <div class="preview-metrics">
+                <div>
+                  <span>Points</span>
+                  <strong>{{ item.child.points }}</strong>
+                </div>
+                <div>
+                  <span>Streak</span>
+                  <strong>{{ item.child.streakDays }} days</strong>
+                </div>
+                <div>
+                  <span>Required</span>
+                  <strong>{{ item.summary?.completedRequired ?? 0 }}/{{ item.summary?.totalRequired ?? 0 }}</strong>
+                </div>
+              </div>
+
+              <p><strong>Book:</strong> {{ item.child.currentBook || 'Not set yet' }}</p>
+              <p><strong>Life skill:</strong> {{ item.child.currentLifeSkill || 'Not set yet' }}</p>
+              <p><strong>Sports goal:</strong> {{ item.child.sportsGoal || 'Not set yet' }}</p>
+
+              @if (usesFirebaseChildProfiles()) {
+                <div class="preview-access">
+                  <div class="preview-access__top">
+                    <span class="access-chip" [class.access-chip--active]="item.child.login?.enabled">
+                      {{ item.child.login?.enabled ? 'Login ready' : 'No child login yet' }}
+                    </span>
+                    @if (item.child.login?.enabled && item.child.login?.usernameDisplay) {
+                      <code>{{ item.child.login?.usernameDisplay }}</code>
+                    }
+                  </div>
+
+                  <p class="preview-access__copy">
+                    {{
+                      item.child.login?.enabled
+                        ? 'This child can sign in from the public child lane with a username or the hidden Firebase email alias.'
+                        : 'Enable a child username when this profile is ready to sign in from a separate device.'
+                    }}
+                  </p>
+
+                  @if (item.child.login?.enabled) {
+                    <p class="preview-access__copy">
+                      Use the household switch action when {{ item.child.name }} is at this house and their signed-in
+                      device should reopen in {{ currentHouseholdLabel() }}.
+                    </p>
+                  }
+                </div>
+              }
+
+              <div class="preview-links">
+                <a class="inline-link" [routerLink]="['/children', item.child.id, 'profile']">Open profile</a>
+                <a class="inline-link" [routerLink]="['/children', item.child.id, 'today']">Open today's board</a>
+                @if (usesFirebaseChildProfiles() && !item.child.login?.enabled) {
+                  <button type="button" class="inline-button inline-button--accent" (click)="startLoginSetup(item.child.id)">
+                    Set up login
+                  </button>
+                }
+                @if (usesFirebaseChildProfiles()) {
+                  <button
+                    type="button"
+                    class="inline-button"
+                    [disabled]="pendingLinkChildId() === item.child.id"
+                    (click)="createChildHouseholdLink(item.child.id)"
+                  >
+                    {{
+                      pendingLinkChildId() === item.child.id
+                        ? 'Creating link code...'
+                        : 'Create household link code'
+                    }}
+                  </button>
+                }
+                @if (usesFirebaseChildProfiles() && item.child.login?.enabled) {
+                  <button
+                    type="button"
+                    class="inline-button inline-button--accent"
+                    [disabled]="pendingHouseholdChildId() === item.child.id"
+                    (click)="pointChildToCurrentHousehold(item.child.id)"
+                  >
+                    {{
+                      pendingHouseholdChildId() === item.child.id
+                        ? 'Pointing child here...'
+                        : 'Point this child to this household'
+                    }}
+                  </button>
+                }
+              </div>
+
+              @if (latestCreatedLink()?.childId === item.child.id) {
+                <section class="preview-share-code">
+                  <div class="preview-share-code__top">
+                    <div>
+                      <p class="eyebrow">Household link ready</p>
+                      <h3>{{ latestCreatedLink()?.childName }}</h3>
+                    </div>
+                    <p class="preview-share-code__meta">Expires {{ latestCreatedLink()?.expiresAtLabel }}</p>
+                  </div>
+
+                  <p class="preview-share-code__copy">
+                    Sign in to the receiving household and paste this code into the shared child access panel on this page.
+                  </p>
+
+                  <div class="preview-share-code__value">
+                    <code>{{ latestCreatedLink()?.code }}</code>
+                  </div>
+                </section>
+              }
+
+              @if (loginChildId() === item.child.id) {
+                <section class="preview-login-setup">
+                  <div class="preview-login-setup__heading">
+                    <div>
+                      <p class="eyebrow">Child sign-in · Step 2</p>
+                      <h3>Finish {{ item.child.name }}'s login</h3>
+                    </div>
+                    <p class="preview-card__active-note">
+                      Choose a username and starter password, then save the account setup here in the selected child card.
+                    </p>
+                  </div>
+
+                  <form class="child-form" (submit)="onEnableLogin(); $event.preventDefault()">
+                    <div class="field-grid">
+                      <label class="field field--full">
+                        <span class="field__label">Child username</span>
+                        <input
+                          #loginUsernameInput
+                          [formField]="loginForm.username"
+                          (input)="clearLoginError()"
+                          autocomplete="off"
+                          placeholder="avaquest"
+                        />
+                        <span class="field__hint">{{ childLoginHint }}</span>
+                        @if (loginForm.username().touched() && loginForm.username().errors().length) {
+                          <span class="field__error">{{ errorMessage(loginForm.username().errors()) }}</span>
+                        }
+                      </label>
+
+                      <label class="field field--full">
+                        <span class="field__label">Starter password</span>
+                        <input
+                          type="password"
+                          [formField]="loginForm.password"
+                          (input)="clearLoginError()"
+                          autocomplete="new-password"
+                          placeholder="Choose starter password"
+                        />
+                        @if (loginForm.password().touched() && loginForm.password().errors().length) {
+                          <span class="field__error">{{ errorMessage(loginForm.password().errors()) }}</span>
+                        }
+                      </label>
+                    </div>
+
+                    @if (loginError()) {
+                      <span class="field__error field__error--banner">{{ loginError() }}</span>
+                    }
+
+                    <div class="form-actions">
+                      <div class="action-row">
+                        <button
+                          type="submit"
+                          class="primary-button"
+                          [disabled]="loginForm().invalid() || loginForm().pending()"
+                        >
+                          Enable child login
+                        </button>
+                        <button type="button" class="secondary-button" (click)="cancelLoginSetup()">Cancel</button>
+                      </div>
+
+                      <p class="form-helper">
+                        This is still a prototype client-side provisioning flow. Later we will move username lookup and child credential management behind a secure backend path without changing the parent experience.
+                      </p>
+                    </div>
+                  </form>
+                </section>
+              }
+            </article>
+          } @empty {
+            <article class="preview-card preview-card--empty">
+              <h3>No child profiles yet</h3>
+              <p>
+                {{ usesFirebaseChildProfiles()
+                  ? 'Create the first child profile for this new household here.'
+                  : 'The demo roster is empty right now.' }}
+              </p>
+            </article>
+          }
+        </div>
+      </article>
+    </aside>
+  </section>
+</main>

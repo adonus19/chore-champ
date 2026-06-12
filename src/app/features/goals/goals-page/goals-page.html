@@ -1,0 +1,200 @@
+@if (vm(); as vm) {
+  <main class="goals-page" [style.--goals-accent]="vm.child.themeColor">
+    <a class="back-link" [routerLink]="['/children', vm.child.id, 'today']">Back to today's board</a>
+
+    @if (actionFeedback(); as feedback) {
+      <section
+        class="feedback-banner"
+        [class.feedback-banner--error]="feedback.kind === 'error'"
+        [class.feedback-banner--warning]="feedback.kind === 'warning'"
+        [attr.role]="feedback.kind === 'error' ? 'alert' : 'status'"
+        aria-live="polite"
+      >
+        <strong>
+          {{ feedback.kind === 'error' ? 'Goal update issue:' : feedback.kind === 'warning' ? 'Goal heads up:' : 'Goal updated:' }}
+        </strong>
+        {{ feedback.text }}
+      </section>
+    }
+
+    <section class="hero-card">
+      <div class="hero-copy">
+        <p class="eyebrow">Goals</p>
+        <h1>{{ vm.child.name }}'s growth board</h1>
+        <p class="hero-message">{{ vm.heroMessage }}</p>
+
+        <div class="hero-tags" aria-label="Goal board highlights">
+          <span class="hero-tag">Mode: {{ vm.activeMode.name }}</span>
+          <span class="hero-tag hero-tag--gold">{{ vm.goals.length }} active goal{{ vm.goals.length === 1 ? '' : 's' }}</span>
+          @if (vm.completedCount > 0) {
+            <span class="hero-tag hero-tag--mint">{{ vm.completedCount }} already complete</span>
+          }
+        </div>
+      </div>
+
+      <aside class="hero-status">
+        <div class="child-badge">
+          <div class="child-badge__avatar" [style.background]="vm.child.themeColor">
+            {{ vm.child.avatar }}
+          </div>
+
+          <div>
+            <h2>{{ vm.child.name }}</h2>
+            <p>Level {{ vm.child.level }} adventurer · Age {{ vm.child.age }}</p>
+          </div>
+        </div>
+
+        <div class="focus-card">
+          <span>Year goal</span>
+          <strong>{{ vm.child.yearGoal || 'Set the next big target' }}</strong>
+        </div>
+
+        <p class="rule-copy">Goals reward steady growth over time. They are not about pressure. They are about visible progress and confidence.</p>
+      </aside>
+    </section>
+
+    <section class="stats-grid" aria-label="Goals summary">
+      @for (stat of vm.headlineStats; track stat.label) {
+        <article class="stat-card">
+          <p class="stat-card__label">{{ stat.label }}</p>
+          <p class="stat-card__value">{{ stat.value }}</p>
+          <p class="stat-card__hint">{{ stat.hint }}</p>
+        </article>
+      }
+    </section>
+
+    <section class="content-grid">
+      <section class="main-column">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Progress targets</p>
+              <h2>Live goals in {{ vm.activeMode.name }}</h2>
+            </div>
+            <p class="panel-copy">Log progress as real growth happens. Parents shape targets from the family dashboard, and the child board keeps the next step visible.</p>
+          </div>
+
+          <div class="goal-list">
+            @for (item of vm.goals; track item.goal.id) {
+              <article class="goal-card" [class.goal-card--complete]="item.complete">
+                <div class="goal-card__top">
+                  <div>
+                    <div class="goal-tags">
+                      <span class="goal-tag">{{ categoryLabel(item.goal.category) }}</span>
+                      @if (item.complete) {
+                        <span class="goal-tag goal-tag--mint">Complete</span>
+                      }
+                    </div>
+
+                    <h3>{{ item.goal.title }}</h3>
+                    <p>{{ item.goal.current }} / {{ item.goal.target }} {{ item.goal.unit }}</p>
+                  </div>
+
+                  <div class="goal-meter">
+                    <span>Progress</span>
+                    <strong>{{ item.progress }}%</strong>
+                  </div>
+                </div>
+
+                <div
+                  class="progress-shell"
+                  role="progressbar"
+                  [attr.aria-label]="item.goal.title + ' progress'"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  [attr.aria-valuenow]="item.progress"
+                >
+                  <div class="progress-fill" [style.width.%]="item.progress"></div>
+                </div>
+
+                <p class="goal-copy">{{ remainingLabel(item.remaining, item.goal.unit) }}</p>
+
+                <div class="goal-footer">
+                  <span class="goal-status">{{ goalStatusLabel(item.progress, item.complete) }}</span>
+
+                  <button
+                    type="button"
+                    class="goal-button"
+                    [disabled]="item.complete || pendingGoalId() === item.goal.id"
+                    (click)="logGoalProgress(item.goal.id, item.goal)"
+                  >
+                    {{ pendingGoalId() === item.goal.id ? 'Saving...' : item.complete ? 'Goal reached' : goalStepLabel(item.goal) }}
+                  </button>
+                </div>
+              </article>
+            } @empty {
+              <div class="empty-state">
+                <h3>No goals active in this mode</h3>
+                <p>Parents can add the next stretch target from the family dashboard goal manager.</p>
+              </div>
+            }
+          </div>
+        </article>
+      </section>
+
+      <aside class="side-column">
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Journal link</p>
+              <h2>Latest win of the day</h2>
+            </div>
+          </div>
+
+          @if (vm.latestJournalEntry; as entry) {
+            <div class="journal-card">
+              <p><strong>Accomplished:</strong> {{ entry.accomplished }}</p>
+              <p><strong>Proud of:</strong> {{ entry.proudOf }}</p>
+              @if (entry.parentNote) {
+                <p><strong>Parent note:</strong> {{ entry.parentNote }}</p>
+              }
+            </div>
+          } @else {
+            <div class="empty-state">
+              <h3>No journal entry yet</h3>
+              <p>The journal can help connect the dots between daily wins and long-term goals.</p>
+            </div>
+          }
+
+          <a class="panel-link" [routerLink]="['/children', vm.child.id, 'journal']">Open journal</a>
+        </article>
+
+        <article class="panel panel--compact">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Big picture</p>
+              <h2>Why this matters</h2>
+            </div>
+          </div>
+
+          <div class="info-list">
+            <div class="info-item">
+              <span>Current book</span>
+              <strong>{{ vm.child.currentBook || 'Pick a new reading target' }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Life skill</span>
+              <strong>{{ vm.child.currentLifeSkill || 'Choose a new life skill' }}</strong>
+            </div>
+            <div class="info-item">
+              <span>Sports goal</span>
+              <strong>{{ vm.child.sportsGoal || 'No sports goal set yet' }}</strong>
+            </div>
+          </div>
+
+          <p class="rule-copy">{{ vm.activeMode.defaultScreenTimeRule }}</p>
+        </article>
+      </aside>
+    </section>
+  </main>
+} @else {
+  <main class="goals-page goals-page--empty">
+    <a class="back-link" routerLink="/family-access">Back to family access</a>
+
+    <section class="panel empty-state">
+      <p class="eyebrow">Goals board not found</p>
+      <h1>We could not find that adventurer</h1>
+      <p>Head back to family access and reopen the right child board from there.</p>
+    </section>
+  </main>
+}
