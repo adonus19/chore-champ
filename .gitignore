@@ -39,6 +39,13 @@ testem.log
 /typings
 __screenshots__/
 
+# Local Firebase / Angular environment files
+src/environments/environment.ts
+src/environments/environment.development.ts
+.env
+.env.*
+!.env.example
+
 # System files
 .DS_Store
 Thumbs.db

@@ -36,6 +36,14 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+Before running the app or building it outside CI, copy `.env.example` to `.env`, fill in your Firebase values, and generate the local Angular environment files:
+
+```bash
+npm run env:write
+```
+
+The local `.env` file is gitignored, and CI generates the same Angular environment files from GitHub Actions secrets.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:

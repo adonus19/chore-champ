@@ -2,6 +2,7 @@
   "name": "chore-champ",
   "version": "0.0.0",
   "scripts": {
+    "env:write": "node scripts/write-environment-files.mjs",
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",

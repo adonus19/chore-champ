@@ -27,6 +27,7 @@ Update this file at the end of each completed implementation pass.
 - Auth-backed households now sync privilege rules and screen-time settings through Firestore, so parent edits carry across parent and child sessions instead of staying browser-local.
 - Auth-backed accounts can now switch among linked household contexts, and parents can both link an existing child into a second household from the app and point a login-enabled child account at the parent’s current household without forcing a sign-out.
 - Production builds now emit the Angular service worker and GitHub Pages deployment assets, and the repo includes SPA fallback plus a deploy workflow for real-device PWA testing.
+- GitHub Pages deployment now generates Angular Firebase environment files from GitHub Actions secrets, while local Firebase env files stay gitignored and can be recreated from `.env.example`.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -119,6 +120,7 @@ Update this file at the end of each completed implementation pass.
 - Simplified live seasonal mode sync so `households/{householdId}/settings/app.activeModeId` is now the Firestore source of truth, while child profile hydration derives the active mode from household settings instead of requiring extra `childState` mode mirroring writes.
 - Hardened the new parent self-board entry points against Angular live-reload stale-instance errors by moving new template-facing checks onto component methods instead of newly added instance fields.
 - Prepared the app for GitHub Pages PWA deployment by adding theme/install metadata, a Pages-friendly SPA `404.html` fallback, `.nojekyll`, a GitHub Actions Pages deploy workflow, and deployment notes including the Firebase Auth authorized-domain requirement.
+- Hardened deployment readiness by removing tracked Angular Firebase env files from the repo index, generating them from local `.env` or GitHub Actions secrets instead, and documenting the remaining git-history cleanup caveat for the earlier pushed prototype config.
 
 ## In Progress
 
@@ -165,5 +167,6 @@ Update this file at the end of each completed implementation pass.
 - Keep privileges separate from purchasable rewards in both UX and data behavior.
 - Keep mock services as the integration layer until the UI flows are stable enough for Firebase wiring.
 - Firebase increased the initial bundle enough to trigger the current warning budget. We should revisit bundle strategy or budgets after the Firestore migration settles.
+- The repo head no longer needs committed Firebase env files, but the original pushed prototype commit still contains the old web config in git history until we choose to rewrite history and rotate or restrict that Firebase key.
 - Parent signup bootstrap currently writes Firestore directly from the client as a prototype step. Move that bootstrap behind a secure backend or callable function later without changing the public signup UX.
 - Child creation and child profile editing also currently write Firestore directly from the client as a prototype step. Move that child management flow behind a secure backend or callable function later without changing the parent UX.
