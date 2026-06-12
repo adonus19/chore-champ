@@ -28,6 +28,7 @@ Update this file at the end of each completed implementation pass.
 - Auth-backed accounts can now switch among linked household contexts, and parents can both link an existing child into a second household from the app and point a login-enabled child account at the parent’s current household without forcing a sign-out.
 - Production builds now emit the Angular service worker and GitHub Pages deployment assets, and the repo includes SPA fallback plus a deploy workflow for real-device PWA testing.
 - GitHub Pages deployment now generates Angular Firebase environment files from GitHub Actions secrets, while local Firebase env files stay gitignored and can be recreated from `.env.example`.
+- The deployed PWA now registers its service worker immediately, checks for updates while active, auto-reloads into new versions, and exposes an in-app install action plus iPhone home-screen guidance.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -121,6 +122,7 @@ Update this file at the end of each completed implementation pass.
 - Hardened the new parent self-board entry points against Angular live-reload stale-instance errors by moving new template-facing checks onto component methods instead of newly added instance fields.
 - Prepared the app for GitHub Pages PWA deployment by adding theme/install metadata, a Pages-friendly SPA `404.html` fallback, `.nojekyll`, a GitHub Actions Pages deploy workflow, and deployment notes including the Firebase Auth authorized-domain requirement.
 - Hardened deployment readiness by removing tracked Angular Firebase env files from the repo index, generating them from local `.env` or GitHub Actions secrets instead, and documenting the remaining git-history cleanup caveat for the earlier pushed prototype config.
+- Improved the live PWA experience by auto-checking Angular service-worker updates, reloading clients onto fresh deploys, and surfacing an in-app install helper instead of relying on mobile browsers to show their own prompt.
 
 ## In Progress
 

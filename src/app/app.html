@@ -21,11 +21,32 @@
         </a>
       }
 
+      @if (showInstallAction()) {
+        <button type="button" class="shell-nav__button shell-nav__button--install" (click)="installApp()">
+          {{ installActionLabel() }}
+        </button>
+      }
+
       @if (isSignedIn()) {
         <button type="button" class="shell-nav__button" (click)="signOut()">Sign out</button>
       }
     </nav>
   </header>
+
+  @if (installGuideOpen()) {
+    <section class="install-guide" aria-labelledby="install-guide-title">
+      <div>
+        <p class="install-guide__eyebrow">Install On iPhone</p>
+        <h2 id="install-guide-title">Add Chore Champ to your home screen</h2>
+        <p>
+          Open this page in Safari, tap the Share button, then choose <strong>Add to Home Screen</strong>. After
+          saving it, the app will open from your phone just like a normal app icon.
+        </p>
+      </div>
+
+      <button type="button" class="install-guide__close" (click)="closeInstallGuide()">Close</button>
+    </section>
+  }
 
   <router-outlet />
 </div>

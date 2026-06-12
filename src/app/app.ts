@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterOutlet } from '@angular/router';
 
 import { FirebaseAuthService } from './core/services/firebase-auth.service';
 import { MockFamilyData } from './core/services/mock-family-data';
+import { PwaInstallService } from './core/services/pwa-install.service';
 
 @Component({
   selector: 'app-root',
@@ -13,12 +14,16 @@ import { MockFamilyData } from './core/services/mock-family-data';
 export class App {
   private readonly familyData = inject(MockFamilyData);
   private readonly firebaseAuth = inject(FirebaseAuthService);
+  private readonly pwaInstall = inject(PwaInstallService);
   private readonly router = inject(Router);
 
   readonly familyName = this.familyData.familyName;
   readonly activeViewerBadge = this.familyData.activeViewerBadge;
   readonly isSignedIn = this.familyData.isSignedIn;
   readonly usesParentSelfBoard = this.familyData.usesParentSelfBoard;
+  readonly showInstallAction = this.pwaInstall.showInstallAction;
+  readonly installActionLabel = this.pwaInstall.installActionLabel;
+  readonly installGuideOpen = this.pwaInstall.installGuideOpen;
   readonly shellTitle = computed(() =>
     this.isSignedIn() ? `Household: ${this.familyData.currentHouseholdLabel()}` : 'Sign in to open your family lane',
   );
@@ -86,5 +91,13 @@ export class App {
     await this.firebaseAuth.signOut();
     this.familyData.signOut();
     void this.router.navigateByUrl('/login');
+  }
+
+  async installApp() {
+    await this.pwaInstall.requestInstall();
+  }
+
+  closeInstallGuide() {
+    this.pwaInstall.closeInstallGuide();
   }
 }
