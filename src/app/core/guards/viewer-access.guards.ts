@@ -13,6 +13,7 @@ export const parentOnlyGuard: CanActivateFn = async () => {
   const router = inject(Router);
 
   await firebaseAuth.waitForAuthReady();
+  await familyData.waitForHouseholdDataReady();
 
   return familyData.canAccessParentViews() ? true : router.parseUrl(familyData.parentAccessFallbackUrl());
 };
@@ -23,6 +24,10 @@ export const signedOutOnlyGuard: CanActivateFn = async () => {
   const router = inject(Router);
 
   await firebaseAuth.waitForAuthReady();
+
+  if (firebaseAuth.isAuthenticated()) {
+    await familyData.waitForHouseholdDataReady();
+  }
 
   return familyData.isSignedIn() && familyData.viewerSession().kind !== 'shared'
     ? router.parseUrl(familyData.viewerHomeUrl())
@@ -36,6 +41,10 @@ export const signedInGuard: CanActivateFn = async () => {
 
   await firebaseAuth.waitForAuthReady();
 
+  if (firebaseAuth.isAuthenticated()) {
+    await familyData.waitForHouseholdDataReady();
+  }
+
   return familyData.isSignedIn() ? true : router.parseUrl('/login');
 };
 
@@ -46,6 +55,7 @@ export const childViewerGuard: CanActivateFn = async (route, state) => {
   const childId = route.paramMap.get('childId') ?? '';
 
   await firebaseAuth.waitForAuthReady();
+  await familyData.waitForHouseholdDataReady();
 
   return familyData.canAccessChildView(childId)
     ? true

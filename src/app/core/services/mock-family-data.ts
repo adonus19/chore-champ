@@ -72,9 +72,11 @@ export class MockFamilyData {
   private readonly firebaseQuestData = inject(FirebaseQuestDataService);
   private readonly firebaseRewardData = inject(FirebaseRewardDataService);
   private readonly firebaseUserProfile = inject(FirebaseUserProfileService);
+  private readonly startsWithFirebaseShell = this.firebaseAuth.firebaseEnabled;
   private firebaseHouseholdSyncToken = 0;
+  private readonly householdReadyWaiters = new Set<() => void>();
 
-  readonly familyName = 'Chore Champ HQ';
+  readonly familyName = 'Chore Champ';
   readonly demoParentAccessCode = DEMO_PARENT_ACCESS_CODE;
   private readonly _parentProfile = signal(PARENT_PROFILE);
   readonly parentProfile = this._parentProfile.asReadonly();
@@ -82,30 +84,32 @@ export class MockFamilyData {
     kind: 'shared',
   });
   readonly viewerSession = this._viewerSession.asReadonly();
+  private readonly _householdDataReady = signal(!this.startsWithFirebaseShell);
+  readonly householdDataReady = this._householdDataReady.asReadonly();
   private readonly _activeModeId = signal(DEFAULT_ACTIVE_MODE_ID);
   readonly activeModeId = this._activeModeId.asReadonly();
   readonly householdAccessSyncError = this.firebaseHouseholdAccess.lastSyncError;
   readonly householdSettingsSyncError = this.firebaseHouseholdSettings.lastSyncError;
   private readonly _seasonalModes = signal(SEASONAL_MODES);
   readonly seasonalModes = this._seasonalModes.asReadonly();
-  private readonly _baseChildren = signal(CHILD_PROFILES);
-  private readonly _quests = signal(QUESTS);
+  private readonly _baseChildren = signal<ChildProfile[]>(this.startsWithFirebaseShell ? [] : CHILD_PROFILES);
+  private readonly _quests = signal<Quest[]>(this.startsWithFirebaseShell ? [] : QUESTS);
   readonly quests = this._quests.asReadonly();
-  private readonly _completions = signal(SEED_COMPLETIONS);
+  private readonly _completions = signal<QuestCompletion[]>(this.startsWithFirebaseShell ? [] : SEED_COMPLETIONS);
   readonly completions = this._completions.asReadonly();
   private readonly _rewards = signal(REWARDS);
   readonly rewards = this._rewards.asReadonly();
-  private readonly _rewardRedemptions = signal<RewardRedemption[]>(SEED_REWARD_REDEMPTIONS);
+  private readonly _rewardRedemptions = signal<RewardRedemption[]>(this.startsWithFirebaseShell ? [] : SEED_REWARD_REDEMPTIONS);
   readonly rewardRedemptions = this._rewardRedemptions.asReadonly();
-  private readonly _privilegeRules = signal(PRIVILEGE_RULES);
+  private readonly _privilegeRules = signal<PrivilegeRule[]>(this.startsWithFirebaseShell ? [] : PRIVILEGE_RULES);
   readonly privilegeRules = this._privilegeRules.asReadonly();
   readonly privilegeRulesSyncError = this.firebasePrivilegeRules.lastSyncError;
-  private readonly _goals = signal(GOALS);
+  private readonly _goals = signal<Goal[]>(this.startsWithFirebaseShell ? [] : GOALS);
   readonly goals = this._goals.asReadonly();
-  private readonly _journalEntries = signal(JOURNAL_ENTRIES);
+  private readonly _journalEntries = signal<JournalEntry[]>(this.startsWithFirebaseShell ? [] : JOURNAL_ENTRIES);
   readonly journalEntries = this._journalEntries.asReadonly();
   readonly journalSyncError = this.firebaseJournalData.lastSyncError;
-  private readonly _bonusMoments = signal<BonusMoment[]>(BONUS_MOMENTS);
+  private readonly _bonusMoments = signal<BonusMoment[]>(this.startsWithFirebaseShell ? [] : BONUS_MOMENTS);
   readonly bonusMoments = this._bonusMoments.asReadonly();
   readonly children = computed(() => applyRewardRedemptionOffsetsToChildren(this._baseChildren(), this.rewardRedemptions()));
   readonly accessibleHouseholds = computed(() => this.firebaseHouseholdAccess.accessibleHouseholds() ?? []);
@@ -249,6 +253,16 @@ export class MockFamilyData {
       this.restoreSeedPrivilegeData();
       this.restoreSeedQuestData();
       this.restoreSeedRewardData();
+    });
+  }
+
+  async waitForHouseholdDataReady() {
+    if (this.householdDataReady()) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      this.householdReadyWaiters.add(resolve);
     });
   }
 
@@ -626,10 +640,30 @@ export class MockFamilyData {
   }
 
   canAccessParentViews() {
+    if (this.firebaseAuth.firebaseEnabled) {
+      const profile = this.firebaseUserProfile.currentProfile();
+
+      return this.isSignedIn() && profile?.source === 'authAccount' && profile.role === 'parent';
+    }
+
     return this.isSignedIn() && this.viewerSession().kind === 'parent';
   }
 
   canAccessChildView(childId: string) {
+    if (this.firebaseAuth.firebaseEnabled) {
+      const profile = this.firebaseUserProfile.currentProfile();
+
+      if (!this.isSignedIn() || profile?.source !== 'authAccount') {
+        return false;
+      }
+
+      if (profile.role === 'parent') {
+        return true;
+      }
+
+      return profile.role === 'child' && profile.childId === childId;
+    }
+
     if (!this.childById(childId)) {
       return false;
     }
@@ -1643,7 +1677,13 @@ export class MockFamilyData {
   }
 
   private async syncFirebaseHouseholdState() {
-    if (!this.firebaseAuth.firebaseEnabled || !this.firebaseAuth.authReady()) {
+    if (!this.firebaseAuth.firebaseEnabled) {
+      this.markHouseholdDataReady();
+      return;
+    }
+
+    if (!this.firebaseAuth.authReady()) {
+      this.markHouseholdDataPending();
       return;
     }
 
@@ -1664,15 +1704,18 @@ export class MockFamilyData {
       this.firebasePrivilegeRules.stopSync();
       this.firebaseQuestData.stopSync();
       this.firebaseRewardData.stopSync();
+      this.markHouseholdDataReady();
       return;
     }
 
     if (!this.firebaseUserProfile.profileReady()) {
+      this.markHouseholdDataPending();
       return;
     }
 
     const profile = this.firebaseUserProfile.currentProfile();
     const loadToken = ++this.firebaseHouseholdSyncToken;
+    this.markHouseholdDataPending();
 
     if (profile?.source === 'authAccount' && profile.householdId) {
       this.firebaseHouseholdAccess.startSync(profile);
@@ -1714,9 +1757,14 @@ export class MockFamilyData {
     }
 
     this.applyFirebaseViewerProfile(profile);
+    this.markHouseholdDataReady();
   }
 
   private restoreViewerSession() {
+    if (this.firebaseAuth.firebaseEnabled) {
+      return;
+    }
+
     const storedSession = readStoredViewerSession();
 
     if (!storedSession) {
@@ -1837,32 +1885,32 @@ export class MockFamilyData {
   }
 
   private restoreSeedChildren() {
-    this._baseChildren.set(CHILD_PROFILES);
+    this._baseChildren.set(this.firebaseAuth.firebaseEnabled ? [] : CHILD_PROFILES);
   }
 
   private restoreSeedBonusData() {
-    this._bonusMoments.set(BONUS_MOMENTS);
+    this._bonusMoments.set(this.firebaseAuth.firebaseEnabled ? [] : BONUS_MOMENTS);
   }
 
   private restoreSeedGoalData() {
-    this._goals.set(GOALS);
+    this._goals.set(this.firebaseAuth.firebaseEnabled ? [] : GOALS);
   }
 
   private restoreSeedJournalData() {
-    this._journalEntries.set(JOURNAL_ENTRIES);
+    this._journalEntries.set(this.firebaseAuth.firebaseEnabled ? [] : JOURNAL_ENTRIES);
   }
 
   private restoreSeedPrivilegeData() {
-    this.replacePrivilegeRules(PRIVILEGE_RULES);
+    this.replacePrivilegeRules(this.firebaseAuth.firebaseEnabled ? [] : PRIVILEGE_RULES);
   }
 
   private restoreSeedQuestData() {
-    this._quests.set(QUESTS);
-    this._completions.set(SEED_COMPLETIONS);
+    this._quests.set(this.firebaseAuth.firebaseEnabled ? [] : QUESTS);
+    this._completions.set(this.firebaseAuth.firebaseEnabled ? [] : SEED_COMPLETIONS);
   }
 
   private restoreSeedRewardData() {
-    this.replaceRewardRedemptions(SEED_REWARD_REDEMPTIONS);
+    this.replaceRewardRedemptions(this.firebaseAuth.firebaseEnabled ? [] : SEED_REWARD_REDEMPTIONS);
   }
 
   private replaceRewardRedemptions(redemptions: RewardRedemption[]) {
@@ -1941,6 +1989,28 @@ export class MockFamilyData {
     }
 
     return 'This signed-in account is missing a household context, so household data cannot sync to Firestore yet.';
+  }
+
+  private markHouseholdDataPending() {
+    if (this._householdDataReady()) {
+      this._householdDataReady.set(false);
+    }
+  }
+
+  private markHouseholdDataReady() {
+    if (!this._householdDataReady()) {
+      this._householdDataReady.set(true);
+    }
+
+    if (this.householdReadyWaiters.size === 0) {
+      return;
+    }
+
+    for (const resolve of this.householdReadyWaiters) {
+      resolve();
+    }
+
+    this.householdReadyWaiters.clear();
   }
 }
 

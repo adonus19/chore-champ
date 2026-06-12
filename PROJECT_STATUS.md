@@ -29,6 +29,7 @@ Update this file at the end of each completed implementation pass.
 - Production builds now emit the Angular service worker and GitHub Pages deployment assets, and the repo includes SPA fallback plus a deploy workflow for real-device PWA testing.
 - GitHub Pages deployment now generates Angular Firebase environment files from GitHub Actions secrets, while local Firebase env files stay gitignored and can be recreated from `.env.example`.
 - The deployed PWA now registers its service worker immediately, checks for updates while active, auto-reloads into new versions, and exposes an in-app install action plus iPhone home-screen guidance.
+- Firebase-backed sessions now boot signed-in routes from empty household state instead of seeded demo household content, and route guards wait for household hydration before opening family or child views.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -123,6 +124,7 @@ Update this file at the end of each completed implementation pass.
 - Prepared the app for GitHub Pages PWA deployment by adding theme/install metadata, a Pages-friendly SPA `404.html` fallback, `.nojekyll`, a GitHub Actions Pages deploy workflow, and deployment notes including the Firebase Auth authorized-domain requirement.
 - Hardened deployment readiness by removing tracked Angular Firebase env files from the repo index, generating them from local `.env` or GitHub Actions secrets instead, and documenting the remaining git-history cleanup caveat for the earlier pushed prototype config.
 - Improved the live PWA experience by auto-checking Angular service-worker updates, reloading clients onto fresh deploys, and surfacing an in-app install helper instead of relying on mobile browsers to show their own prompt.
+- Removed startup leakage of demo household data for Firebase-enabled sessions by clearing seeded household collections in auth-backed mode and waiting for real household hydration before signed-in routes render.
 
 ## In Progress
 
