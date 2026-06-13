@@ -1,5 +1,5 @@
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
-import { FormField, form, min, minLength, pattern, required, submit, validate } from '@angular/forms/signals';
+import { FormField, form, min, minLength, pattern, required, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 
 import { ChildProfile, ChildProfileDraft, HouseholdSwitchPolicy } from '../../../core/models/family.models';
@@ -11,6 +11,7 @@ import { FirebaseChildProfilesService } from '../../../core/services/firebase-ch
 import { FirebaseHouseholdParentsService } from '../../../core/services/firebase-household-parents.service';
 import { FirebaseUserProfileService } from '../../../core/services/firebase-user-profile.service';
 import { childUsernameHelpText, normalizeChildUsername, suggestChildUsername } from '../../../core/utils/child-login';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 import { generateTempPassword } from '../../../core/utils/temp-password';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 
@@ -176,8 +177,8 @@ export class ParentChildProfilesPage {
   );
   readonly canUseLatestLinkCode = computed(() => Boolean(this.latestCreatedLink()?.code));
 
-  onSubmit() {
-    submit(this.childForm, async () => {
+  onSubmit(submitEvent?: Event) {
+    submitWithValidationFocus(this.childForm, submitEvent, async () => {
       const draft = this.buildChildDraft();
       const editingChildId = this.editingChildId();
       this.saveError.set('');
@@ -302,8 +303,8 @@ export class ParentChildProfilesPage {
     this.invitedParent.set(null);
   }
 
-  onInviteParent() {
-    submit(this.parentForm, async () => {
+  onInviteParent(submitEvent?: Event) {
+    submitWithValidationFocus(this.parentForm, submitEvent, async () => {
       this.inviteError.set('');
       const tempPassword = generateTempPassword();
       const formValue = this.parentForm().value();
@@ -389,8 +390,8 @@ export class ParentChildProfilesPage {
     this.acceptLinkError.set('');
   }
 
-  onAcceptChildHouseholdLink() {
-    submit(this.acceptLinkForm, async () => {
+  onAcceptChildHouseholdLink(submitEvent?: Event) {
+    submitWithValidationFocus(this.acceptLinkForm, submitEvent, async () => {
       this.acceptLinkError.set('');
       const formValue = this.acceptLinkForm().value();
       const result = await this.firebaseChildHouseholdLinks.acceptChildHouseholdLink(
@@ -421,8 +422,8 @@ export class ParentChildProfilesPage {
     });
   }
 
-  onEnableLogin() {
-    submit(this.loginForm, async () => {
+  onEnableLogin(submitEvent?: Event) {
+    submitWithValidationFocus(this.loginForm, submitEvent, async () => {
       const child = this.loginChild();
 
       if (!child) {

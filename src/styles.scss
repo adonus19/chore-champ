@@ -49,6 +49,12 @@ select {
   font: inherit;
 }
 
+.required-indicator::after {
+  content: ' *';
+  color: #c43f31;
+  font-weight: 700;
+}
+
 button:focus-visible,
 a:focus-visible {
   outline: 3px solid rgba(31, 122, 201, 0.42);

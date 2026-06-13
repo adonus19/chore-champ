@@ -1,5 +1,5 @@
 import { computed, Component, effect, inject, signal } from '@angular/core';
-import { FormField, form, minLength, required, submit, validate } from '@angular/forms/signals';
+import { FormField, form, minLength, required, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 
 import {
@@ -11,6 +11,7 @@ import {
   SeasonalMode,
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-privileges-page',
@@ -131,8 +132,8 @@ export class PrivilegesPage {
     this.actionFeedback.set(null);
   }
 
-  saveRuleChanges() {
-    submit(this.privilegeRuleForm, async () => {
+  saveRuleChanges(submitEvent?: Event) {
+    submitWithValidationFocus(this.privilegeRuleForm, submitEvent, async () => {
       const selectedRule = this.selectedRule();
 
       if (!selectedRule) {

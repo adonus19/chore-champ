@@ -80,10 +80,22 @@
           <p class="panel-copy">Keep the instructions short, the finish line clear, and the tone encouraging.</p>
         </div>
 
-        <form class="quest-form" (submit)="onSubmit(); $event.preventDefault()">
+        <form class="quest-form" (submit)="onSubmit($event); $event.preventDefault()">
           <div class="field-grid">
+            <label class="field field--full">
+              <span class="field__label">Quick-start chore</span>
+              <select [value]="selectedQuestPresetId()" (change)="applyQuestPreset(($any($event.target).value ?? '').toString())">
+                @for (option of QUEST_PRESET_OPTIONS; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+              <span class="field__hint">
+                Choose a preset to fill the form faster. Assignees and seasonal modes stay exactly as you set them.
+              </span>
+            </label>
+
             <label class="field">
-              <span class="field__label">Quest title</span>
+              <span class="field__label required-indicator">Quest title</span>
               <input [formField]="questForm.title" placeholder="Launch pad room reset" />
               @if (questForm.title().touched() && questForm.title().errors().length) {
                 <span class="field__error">{{ errorMessage(questForm.title().errors()) }}</span>
@@ -91,7 +103,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Points</span>
+              <span class="field__label required-indicator">Points</span>
               <input type="number" step="1" [formField]="questForm.points" />
               @if (questForm.points().touched() && questForm.points().errors().length) {
                 <span class="field__error">{{ errorMessage(questForm.points().errors()) }}</span>
@@ -99,7 +111,7 @@
             </label>
 
             <label class="field field--full">
-              <span class="field__label">Short description</span>
+              <span class="field__label required-indicator">Short description</span>
               <textarea [formField]="questForm.description" rows="3" placeholder="A clear one-line picture of what this quest is asking for."></textarea>
               @if (questForm.description().touched() && questForm.description().errors().length) {
                 <span class="field__error">{{ errorMessage(questForm.description().errors()) }}</span>
@@ -139,7 +151,7 @@
             </label>
 
             <label class="field field--full">
-              <span class="field__label">Done definition</span>
+              <span class="field__label required-indicator">Done definition</span>
               <textarea [formField]="questForm.instructions" rows="3" placeholder="What does done look like when a child marks this complete?"></textarea>
               @if (questForm.instructions().touched() && questForm.instructions().errors().length) {
                 <span class="field__error">{{ errorMessage(questForm.instructions().errors()) }}</span>
@@ -152,7 +164,7 @@
           </div>
 
           <fieldset class="choice-group">
-            <legend>Assign to</legend>
+            <legend class="required-indicator">Assign to</legend>
             <div class="choice-grid">
               @for (child of children(); track childTrackBy($index, child)) {
                 <label class="choice-card" [style.--choice-accent]="child.themeColor">
@@ -176,7 +188,7 @@
           </fieldset>
 
           <fieldset class="choice-group">
-            <legend>Seasonal modes</legend>
+            <legend class="required-indicator">Seasonal modes</legend>
             <div class="choice-grid">
               @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
                 <label class="choice-card choice-card--mode">
@@ -221,7 +233,7 @@
 
           <div class="form-actions">
             <div class="action-row">
-              <button type="submit" class="primary-button" [disabled]="questForm().invalid() || questForm().pending()">
+              <button type="submit" class="primary-button" [disabled]="questForm().pending()">
                 {{ editingQuest() ? 'Save quest changes' : 'Add quest to family board' }}
               </button>
 
@@ -260,10 +272,10 @@
               <p>Great attitude, leadership, kindness, or extra effort can earn bonus points without changing privilege rules.</p>
             </div>
 
-            <form class="bonus-form" (submit)="awardBonusPoints(); $event.preventDefault()">
+            <form class="bonus-form" (submit)="awardBonusPoints($event); $event.preventDefault()">
               <div class="field-grid">
                 <label class="field">
-                  <span class="field__label">Child</span>
+                  <span class="field__label required-indicator">Child</span>
                   <select [formField]="bonusForm.childId">
                     @for (child of children(); track childTrackBy($index, child)) {
                       <option [value]="child.id">{{ child.name }}</option>
@@ -275,7 +287,7 @@
                 </label>
 
                 <label class="field">
-                  <span class="field__label">Bonus points</span>
+                  <span class="field__label required-indicator">Bonus points</span>
                   <input type="number" step="1" [formField]="bonusForm.points" />
                   @if (bonusForm.points().touched() && bonusForm.points().errors().length) {
                     <span class="field__error">{{ errorMessage(bonusForm.points().errors()) }}</span>
@@ -283,7 +295,7 @@
                 </label>
 
                 <label class="field field--full">
-                  <span class="field__label">Why it matters</span>
+                  <span class="field__label required-indicator">Why it matters</span>
                   <textarea
                     [formField]="bonusForm.note"
                     rows="3"
@@ -296,7 +308,7 @@
               </div>
 
               <div class="form-actions">
-                <button type="submit" class="primary-button" [disabled]="bonusForm().invalid() || bonusForm().pending()">
+                <button type="submit" class="primary-button" [disabled]="bonusForm().pending()">
                   Award bonus points
                 </button>
                 <p class="form-helper">Bonus points go straight into the child balance and show up in today’s momentum.</p>

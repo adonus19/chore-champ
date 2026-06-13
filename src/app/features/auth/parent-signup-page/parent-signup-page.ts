@@ -1,11 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormField, form, minLength, pattern, required, submit } from '@angular/forms/signals';
+import { FormField, form, minLength, pattern, required } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 
 import { FirebaseAccountBootstrapService } from '../../../core/services/firebase-account-bootstrap';
 import { FirebaseAuthService } from '../../../core/services/firebase-auth.service';
 import { FirebaseUserProfileService } from '../../../core/services/firebase-user-profile.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-parent-signup-page',
@@ -66,8 +67,8 @@ export class ParentSignupPage {
     });
   });
 
-  createParentAccount() {
-    submit(this.signupForm, async () => {
+  createParentAccount(submitEvent?: Event) {
+    submitWithValidationFocus(this.signupForm, submitEvent, async () => {
       if (!this.firebaseEnabled) {
         this.signupError.set('Firebase Auth is not configured yet. Add the Firebase keys before creating real accounts.');
         return;

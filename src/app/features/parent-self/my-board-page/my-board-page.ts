@@ -1,9 +1,10 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormField, form, min, minLength, required, submit } from '@angular/forms/signals';
+import { FormField, form, min, minLength, required } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 
 import { GoalDraft, QuestCategory } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-my-board-page',
@@ -53,8 +54,8 @@ export class MyBoardPage {
     ];
   });
 
-  onAddGoal() {
-    submit(this.goalForm, async () => {
+  onAddGoal(submitEvent?: Event) {
+    submitWithValidationFocus(this.goalForm, submitEvent, async () => {
       this.actionError.set('');
       this.feedback.set(null);
       const result = await this.familyData.addGoal(this.buildGoalDraft());

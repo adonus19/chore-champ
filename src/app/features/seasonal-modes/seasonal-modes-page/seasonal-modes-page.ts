@@ -1,5 +1,5 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { FormField, form, minLength, required, submit, validate } from '@angular/forms/signals';
+import { FormField, form, minLength, required, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 
 import {
@@ -10,6 +10,7 @@ import {
   SeasonalModeDraft,
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-seasonal-modes-page',
@@ -180,8 +181,8 @@ export class SeasonalModesPage {
     });
   }
 
-  saveModeChanges() {
-    submit(this.seasonalModeForm, async () => {
+  saveModeChanges(submitEvent?: Event) {
+    submitWithValidationFocus(this.seasonalModeForm, submitEvent, async () => {
       const mode = this.selectedMode();
       this.familyData.updateSeasonalMode(mode.id, this.buildSeasonalModeDraft());
       this.lastSavedModeName.set(mode.name);

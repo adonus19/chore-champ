@@ -43,10 +43,10 @@
           <h2>Track a personal goal</h2>
         </div>
 
-        <form class="board-form" (submit)="onAddGoal(); $event.preventDefault()">
+        <form class="board-form" (submit)="onAddGoal($event); $event.preventDefault()">
           <div class="field-grid">
             <label class="field field--full">
-              <span class="field__label">Goal title</span>
+              <span class="field__label required-indicator">Goal title</span>
               <input [formField]="goalForm.title" placeholder="Run a 5k" />
               @if (goalForm.title().touched() && goalForm.title().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.title().errors()) }}</span>
@@ -54,7 +54,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Target</span>
+              <span class="field__label required-indicator">Target</span>
               <input type="number" step="1" [formField]="goalForm.target" />
               @if (goalForm.target().touched() && goalForm.target().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.target().errors()) }}</span>
@@ -62,7 +62,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Unit</span>
+              <span class="field__label required-indicator">Unit</span>
               <input [formField]="goalForm.unit" placeholder="miles" />
               @if (goalForm.unit().touched() && goalForm.unit().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.unit().errors()) }}</span>
@@ -79,7 +79,7 @@
             </label>
           </div>
 
-          <button type="submit" class="primary-button" [disabled]="goalForm().invalid() || goalForm().pending()">
+          <button type="submit" class="primary-button" [disabled]="goalForm().pending()">
             Add goal to my board
           </button>
         </form>

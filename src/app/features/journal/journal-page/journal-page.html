@@ -76,9 +76,9 @@
             <p class="panel-copy">Keep it short and real. One solid sentence for each prompt is enough.</p>
           </div>
 
-          <form class="journal-form" (submit)="onSubmit(); $event.preventDefault()">
+          <form class="journal-form" (submit)="onSubmit($event); $event.preventDefault()">
             <label class="field">
-              <span class="field__label">What did I accomplish today?</span>
+              <span class="field__label required-indicator">What did I accomplish today?</span>
               <textarea rows="4" [formField]="journalForm.accomplished" placeholder="I finished my reading before dinner and helped reset the kitchen."></textarea>
               @if (journalForm.accomplished().touched() && journalForm.accomplished().errors().length) {
                 <span class="field__error">{{ errorMessage(journalForm.accomplished().errors()) }}</span>
@@ -86,7 +86,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">What did I learn today?</span>
+              <span class="field__label required-indicator">What did I learn today?</span>
               <textarea rows="4" [formField]="journalForm.learned" placeholder="I learned it is easier to stay calm when I do the hard thing first."></textarea>
               @if (journalForm.learned().touched() && journalForm.learned().errors().length) {
                 <span class="field__error">{{ errorMessage(journalForm.learned().errors()) }}</span>
@@ -94,7 +94,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">What am I proud of today?</span>
+              <span class="field__label required-indicator">What am I proud of today?</span>
               <textarea rows="4" [formField]="journalForm.proudOf" placeholder="I am proud that I practiced even when I wanted to skip."></textarea>
               @if (journalForm.proudOf().touched() && journalForm.proudOf().errors().length) {
                 <span class="field__error">{{ errorMessage(journalForm.proudOf().errors()) }}</span>
@@ -102,7 +102,7 @@
             </label>
 
             <div class="form-actions">
-              <button type="submit" class="primary-button" [disabled]="journalForm().invalid() || journalForm().pending() || isSaving()">
+              <button type="submit" class="primary-button" [disabled]="journalForm().pending() || isSaving()">
                 {{ isSaving() ? 'Saving journal...' : "Save today's journal" }}
               </button>
               <a class="secondary-link" [routerLink]="['/children', vm.child.id, 'goals']">Open goals</a>

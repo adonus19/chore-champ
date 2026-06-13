@@ -1,11 +1,12 @@
 import { computed, Component, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { FormField, form, minLength, required, submit } from '@angular/forms/signals';
+import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { map } from 'rxjs';
 
 import { JournalEntry } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-journal-page',
@@ -95,8 +96,8 @@ export class JournalPage {
     });
   }
 
-  onSubmit() {
-    void submit(this.journalForm, async () => {
+  onSubmit(submitEvent?: Event) {
+    submitWithValidationFocus(this.journalForm, submitEvent, async () => {
       const childId = this.childId();
 
       if (!childId) {

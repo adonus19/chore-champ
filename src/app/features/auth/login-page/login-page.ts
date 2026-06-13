@@ -1,7 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormField, form, minLength, required, submit } from '@angular/forms/signals';
+import { FormField, form, minLength, required } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 import { FirebaseAuthService } from '../../../core/services/firebase-auth.service';
 import { FirebaseChildLoginService } from '../../../core/services/firebase-child-login.service';
 import { FirebaseUserProfileService } from '../../../core/services/firebase-user-profile.service';
@@ -84,8 +85,8 @@ export class LoginPage {
     });
   });
 
-  signInParentDemo() {
-    submit(this.parentDemoForm, async () => {
+  signInParentDemo(submitEvent?: Event) {
+    submitWithValidationFocus(this.parentDemoForm, submitEvent, async () => {
       const code = this.parentDemoForm().value().code.trim();
 
       if (!this.familyData.signInParentWithCode(code)) {
@@ -99,8 +100,8 @@ export class LoginPage {
     });
   }
 
-  signInChildDemo() {
-    submit(this.childDemoForm, async () => {
+  signInChildDemo(submitEvent?: Event) {
+    submitWithValidationFocus(this.childDemoForm, submitEvent, async () => {
       const code = this.childDemoForm().value().code.trim();
       const childId = this.familyData.signInChildWithCode(code);
 
@@ -115,8 +116,8 @@ export class LoginPage {
     });
   }
 
-  signInParentFirebase() {
-    submit(this.parentFirebaseForm, async () => {
+  signInParentFirebase(submitEvent?: Event) {
+    submitWithValidationFocus(this.parentFirebaseForm, submitEvent, async () => {
       const { email, password } = this.parentFirebaseForm().value();
       const result = await this.firebaseAuth.signInWithEmailPassword(email, password);
 
@@ -153,8 +154,8 @@ export class LoginPage {
     });
   }
 
-  signInChildFirebase() {
-    submit(this.childFirebaseForm, async () => {
+  signInChildFirebase(submitEvent?: Event) {
+    submitWithValidationFocus(this.childFirebaseForm, submitEvent, async () => {
       const { identifier, password } = this.childFirebaseForm().value();
       const result = await this.firebaseChildLogin.signInWithUsernameOrEmail(identifier, password);
 

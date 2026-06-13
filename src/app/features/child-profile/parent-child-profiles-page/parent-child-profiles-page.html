@@ -138,10 +138,10 @@
             </section>
           }
 
-          <form class="child-form" (submit)="onInviteParent(); $event.preventDefault()">
+          <form class="child-form" (submit)="onInviteParent($event); $event.preventDefault()">
             <div class="field-grid">
               <label class="field field--full">
-                <span class="field__label">Parent name</span>
+                <span class="field__label required-indicator">Parent name</span>
                 <input [formField]="parentForm.displayName" (input)="clearInviteError()" placeholder="Jordan" />
                 @if (parentForm.displayName().touched() && parentForm.displayName().errors().length) {
                   <span class="field__error">{{ errorMessage(parentForm.displayName().errors()) }}</span>
@@ -149,7 +149,7 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label">Sign-in email</span>
+                <span class="field__label required-indicator">Sign-in email</span>
                 <input
                   type="email"
                   [formField]="parentForm.email"
@@ -164,7 +164,7 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label">Theme color</span>
+                <span class="field__label required-indicator">Theme color</span>
                 <input type="color" [formField]="parentForm.themeColor" (input)="clearInviteError()" />
               </label>
             </div>
@@ -175,7 +175,7 @@
 
             <div class="form-actions">
               <div class="action-row">
-                <button type="submit" class="primary-button" [disabled]="parentForm().invalid() || parentForm().pending()">
+                <button type="submit" class="primary-button" [disabled]="parentForm().pending()">
                   {{ parentForm().pending() ? 'Adding parent...' : 'Generate password & add parent' }}
                 </button>
               </div>
@@ -188,10 +188,10 @@
           </form>
         } @else {
 
-        <form class="child-form" (submit)="onSubmit(); $event.preventDefault()">
+        <form class="child-form" (submit)="onSubmit($event); $event.preventDefault()">
           <div class="field-grid">
             <label class="field">
-              <span class="field__label">Name</span>
+              <span class="field__label required-indicator">Name</span>
               <input [formField]="childForm.name" (input)="clearSaveError()" placeholder="Ava" />
               @if (childForm.name().touched() && childForm.name().errors().length) {
                 <span class="field__error">{{ errorMessage(childForm.name().errors()) }}</span>
@@ -207,7 +207,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Avatar letters</span>
+              <span class="field__label required-indicator">Avatar letters</span>
               <input [formField]="childForm.avatar" (input)="clearSaveError()" placeholder="AV" />
               @if (childForm.avatar().touched() && childForm.avatar().errors().length) {
                 <span class="field__error">{{ errorMessage(childForm.avatar().errors()) }}</span>
@@ -215,7 +215,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Theme color</span>
+              <span class="field__label required-indicator">Theme color</span>
               <input type="color" [formField]="childForm.themeColor" (input)="clearSaveError()" />
               @if (childForm.themeColor().touched() && childForm.themeColor().errors().length) {
                 <span class="field__error">{{ errorMessage(childForm.themeColor().errors()) }}</span>
@@ -264,7 +264,7 @@
 
           <div class="form-actions">
             <div class="action-row">
-              <button type="submit" class="primary-button" [disabled]="childForm().invalid() || childForm().pending()">
+              <button type="submit" class="primary-button" [disabled]="childForm().pending()">
                 {{ editingChild() ? 'Save child profile' : 'Add child profile' }}
               </button>
 
@@ -320,10 +320,10 @@
             </article>
           }
 
-          <form class="child-form" (submit)="onAcceptChildHouseholdLink(); $event.preventDefault()">
+          <form class="child-form" (submit)="onAcceptChildHouseholdLink($event); $event.preventDefault()">
             <div class="field-grid">
               <label class="field field--full">
-                <span class="field__label">Child household link code</span>
+                <span class="field__label required-indicator">Child household link code</span>
                 <input
                   [formField]="acceptLinkForm.code"
                   (input)="clearAcceptLinkError()"
@@ -339,7 +339,7 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label">Switching style for this household</span>
+                <span class="field__label required-indicator">Switching style for this household</span>
                 <select [formField]="acceptLinkForm.householdSwitchPolicy" (change)="clearAcceptLinkError()">
                   @for (option of childLinkPolicyOptions; track option.value) {
                     <option [value]="option.value">{{ option.label }}</option>
@@ -362,7 +362,7 @@
                 <button
                   type="submit"
                   class="primary-button"
-                  [disabled]="acceptLinkForm().invalid() || acceptLinkForm().pending()"
+                  [disabled]="acceptLinkForm().pending()"
                 >
                   Add child to this household
                 </button>
@@ -537,10 +537,10 @@
                     </p>
                   </div>
 
-                  <form class="child-form" (submit)="onEnableLogin(); $event.preventDefault()">
+                  <form class="child-form" (submit)="onEnableLogin($event); $event.preventDefault()">
                     <div class="field-grid">
                       <label class="field field--full">
-                        <span class="field__label">Child username</span>
+                        <span class="field__label required-indicator">Child username</span>
                         <input
                           #loginUsernameInput
                           [formField]="loginForm.username"
@@ -555,7 +555,7 @@
                       </label>
 
                       <label class="field field--full">
-                        <span class="field__label">Starter password</span>
+                        <span class="field__label required-indicator">Starter password</span>
                         <input
                           type="password"
                           [formField]="loginForm.password"
@@ -578,7 +578,7 @@
                         <button
                           type="submit"
                           class="primary-button"
-                          [disabled]="loginForm().invalid() || loginForm().pending()"
+                          [disabled]="loginForm().pending()"
                         >
                           Enable child login
                         </button>

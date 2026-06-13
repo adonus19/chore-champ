@@ -75,10 +75,10 @@
             <span class="status-pill">{{ rule.activeModes.length }} mode{{ rule.activeModes.length === 1 ? '' : 's' }}</span>
           </div>
 
-          <form class="privilege-form" (submit)="saveRuleChanges(); $event.preventDefault()">
+          <form class="privilege-form" (submit)="saveRuleChanges($event); $event.preventDefault()">
             <div class="field-grid">
               <label class="field">
-                <span class="field__label">Rule title</span>
+                <span class="field__label required-indicator">Rule title</span>
                 <input [formField]="privilegeRuleForm.title" placeholder="Screen time unlock" />
                 @if (privilegeRuleForm.title().touched() && privilegeRuleForm.title().errors().length) {
                   <span class="field__error">{{ errorMessage(privilegeRuleForm.title().errors()) }}</span>
@@ -86,7 +86,7 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label">Requirements</span>
+                <span class="field__label required-indicator">Requirements</span>
                 <textarea
                   [formField]="privilegeRuleForm.requirementLines"
                   rows="6"
@@ -103,7 +103,7 @@
             </div>
 
             <fieldset class="choice-group">
-              <legend>Seasonal modes</legend>
+              <legend class="required-indicator">Seasonal modes</legend>
               <div class="choice-grid">
                 @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
                   <label class="choice-card" [style.--choice-accent]="selectedRuleMeta().accent">
@@ -125,7 +125,6 @@
                   type="submit"
                   class="primary-button"
                   [disabled]="
-                    privilegeRuleForm().invalid() ||
                     privilegeRuleForm().pending() ||
                     !editorDirty() ||
                     pendingRuleId() === rule.id

@@ -128,10 +128,10 @@
             <p class="panel-copy">Tune the real behavior of this mode, then save to push the changes through the previews and child boards.</p>
           </div>
 
-          <form class="mode-form" (submit)="saveModeChanges(); $event.preventDefault()">
+          <form class="mode-form" (submit)="saveModeChanges($event); $event.preventDefault()">
             <div class="field-grid">
               <label class="field field--full">
-                <span class="field__label">Mode description</span>
+                <span class="field__label required-indicator">Mode description</span>
                 <textarea rows="3" [formField]="seasonalModeForm.description"></textarea>
                 @if (seasonalModeForm.description().touched() && seasonalModeForm.description().errors().length) {
                   <span class="field__error">{{ errorMessage(seasonalModeForm.description().errors()) }}</span>
@@ -156,7 +156,7 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label">Screen-time guidance</span>
+                <span class="field__label required-indicator">Screen-time guidance</span>
                 <textarea rows="3" [formField]="seasonalModeForm.defaultScreenTimeRule"></textarea>
                 @if (
                   seasonalModeForm.defaultScreenTimeRule().touched() &&
@@ -168,7 +168,7 @@
             </div>
 
             <fieldset class="choice-group">
-              <legend>Required tracks</legend>
+              <legend class="required-indicator">Required tracks</legend>
               <div class="choice-grid">
                 @for (category of CATEGORY_TOGGLE_OPTIONS; track categoryTrackBy($index, category)) {
                   <label class="choice-card">
@@ -188,17 +188,17 @@
             </fieldset>
 
             <fieldset class="choice-group">
-              <legend>Daily minimums</legend>
+              <legend class="required-indicator">Daily minimums</legend>
               <div class="minimum-editor-grid">
                 @for (minimum of seasonalModeForm.dailyMinimums; track $index) {
                   <div class="minimum-editor-card">
                     <label class="field">
-                      <span class="field__label">Label</span>
+                      <span class="field__label required-indicator">Label</span>
                       <input [formField]="minimum.label" placeholder="Reading" />
                     </label>
 
                     <label class="field">
-                      <span class="field__label">Target</span>
+                      <span class="field__label required-indicator">Target</span>
                       <input [formField]="minimum.target" placeholder="20 minutes" />
                     </label>
                   </div>
@@ -215,7 +215,7 @@
                 <button
                   type="submit"
                   class="primary-button"
-                  [disabled]="seasonalModeForm().invalid() || seasonalModeForm().pending() || !editorDirty()"
+                  [disabled]="seasonalModeForm().pending() || !editorDirty()"
                 >
                   Save mode changes
                 </button>

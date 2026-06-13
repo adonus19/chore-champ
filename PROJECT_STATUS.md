@@ -1,6 +1,6 @@
 # Chore Champ Progress Tracker
 
-Last updated: 2026-06-12
+Last updated: 2026-06-13
 
 ## Purpose
 
@@ -30,6 +30,8 @@ Update this file at the end of each completed implementation pass.
 - GitHub Pages deployment now generates Angular Firebase environment files from GitHub Actions secrets, while local Firebase env files stay gitignored and can be recreated from `.env.example`.
 - The deployed PWA now registers its service worker immediately, checks for updates while active, auto-reloads into new versions, and exposes an in-app install action plus iPhone home-screen guidance.
 - Firebase-backed sessions now boot signed-in routes from empty household state instead of seeded demo household content, and route guards wait for household hydration before opening family or child views.
+- Form-heavy flows now keep submit buttons enabled through invalid states, show required-field asterisks, block invalid API calls, and auto-scroll to the first invalid field after a failed submit.
+- The parent quest manager now includes quick-start chore presets so common household tasks can prefill the quest form instead of forcing parents to author every chore from scratch.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -125,6 +127,7 @@ Update this file at the end of each completed implementation pass.
 - Hardened deployment readiness by removing tracked Angular Firebase env files from the repo index, generating them from local `.env` or GitHub Actions secrets instead, and documenting the remaining git-history cleanup caveat for the earlier pushed prototype config.
 - Improved the live PWA experience by auto-checking Angular service-worker updates, reloading clients onto fresh deploys, and surfacing an in-app install helper instead of relying on mobile browsers to show their own prompt.
 - Removed startup leakage of demo household data for Firebase-enabled sessions by clearing seeded household collections in auth-backed mode and waiting for real household hydration before signed-in routes render.
+- Added shared invalid-submit focus handling across the app, required-field markers on major forms, and parent quest quick-start chore presets to reduce blank-form friction.
 
 ## In Progress
 

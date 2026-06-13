@@ -1,9 +1,10 @@
 import { computed, Component, inject, signal } from '@angular/core';
-import { FormField, form, min, minLength, required, submit, validate } from '@angular/forms/signals';
+import { FormField, form, min, minLength, required, validate } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 
 import { ChildProfile, Goal, GoalDraft, QuestCategory, SeasonalMode } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-parent-goals-page',
@@ -119,8 +120,8 @@ export class ParentGoalsPage {
     });
   });
 
-  onSubmit() {
-    submit(this.goalForm, async () => {
+  onSubmit(submitEvent?: Event) {
+    submitWithValidationFocus(this.goalForm, submitEvent, async () => {
       const draft = this.buildGoalDraft();
       const editingGoalId = this.editingGoalId();
       this.actionError.set('');

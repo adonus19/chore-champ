@@ -36,9 +36,9 @@
       </div>
 
       @if (firebaseEnabled) {
-        <form class="login-form" (submit)="signInParentFirebase(); $event.preventDefault()">
+        <form class="login-form" (submit)="signInParentFirebase($event); $event.preventDefault()">
           <label class="field">
-            <span class="field__label">Parent email</span>
+            <span class="field__label required-indicator">Parent email</span>
             <input
               type="email"
               [formField]="parentFirebaseForm.email"
@@ -52,7 +52,7 @@
           </label>
 
           <label class="field">
-            <span class="field__label">Password</span>
+            <span class="field__label required-indicator">Password</span>
             <input
               type="password"
               [formField]="parentFirebaseForm.password"
@@ -73,7 +73,7 @@
             <button
               type="submit"
               class="primary-button"
-              [disabled]="!authReady() || parentFirebaseForm().invalid() || parentFirebaseForm().pending()"
+              [disabled]="!authReady() || parentFirebaseForm().pending()"
             >
               Sign in with Firebase
             </button>
@@ -81,9 +81,9 @@
           </div>
         </form>
       } @else {
-        <form class="login-form" (submit)="signInParentDemo(); $event.preventDefault()">
+        <form class="login-form" (submit)="signInParentDemo($event); $event.preventDefault()">
           <label class="field">
-            <span class="field__label">Parent demo code</span>
+            <span class="field__label required-indicator">Parent demo code</span>
             <input
               type="text"
               [formField]="parentDemoForm.code"
@@ -100,7 +100,7 @@
           </label>
 
           <div class="form-actions">
-            <button type="submit" class="primary-button" [disabled]="parentDemoForm().invalid() || parentDemoForm().pending()">
+            <button type="submit" class="primary-button" [disabled]="parentDemoForm().pending()">
               Sign in as parent
             </button>
           </div>
@@ -120,9 +120,9 @@
       </div>
 
       @if (firebaseEnabled) {
-        <form class="login-form" (submit)="signInChildFirebase(); $event.preventDefault()">
+        <form class="login-form" (submit)="signInChildFirebase($event); $event.preventDefault()">
           <label class="field">
-            <span class="field__label">Child username or email</span>
+            <span class="field__label required-indicator">Child username or email</span>
             <input
               [formField]="childFirebaseForm.identifier"
               (input)="clearChildError()"
@@ -135,7 +135,7 @@
           </label>
 
           <label class="field">
-            <span class="field__label">Password</span>
+            <span class="field__label required-indicator">Password</span>
             <input
               type="password"
               [formField]="childFirebaseForm.password"
@@ -156,7 +156,7 @@
             <button
               type="submit"
               class="primary-button primary-button--child"
-              [disabled]="!authReady() || childFirebaseForm().invalid() || childFirebaseForm().pending()"
+              [disabled]="!authReady() || childFirebaseForm().pending()"
             >
               Sign in with Firebase
             </button>
@@ -171,9 +171,9 @@
           </p>
         </div>
       } @else {
-        <form class="login-form" (submit)="signInChildDemo(); $event.preventDefault()">
+        <form class="login-form" (submit)="signInChildDemo($event); $event.preventDefault()">
           <label class="field">
-            <span class="field__label">Child demo code</span>
+            <span class="field__label required-indicator">Child demo code</span>
             <input
               type="text"
               [formField]="childDemoForm.code"
@@ -190,7 +190,7 @@
           </label>
 
           <div class="form-actions">
-            <button type="submit" class="primary-button primary-button--child" [disabled]="childDemoForm().invalid() || childDemoForm().pending()">
+            <button type="submit" class="primary-button primary-button--child" [disabled]="childDemoForm().pending()">
               Sign in as child
             </button>
           </div>

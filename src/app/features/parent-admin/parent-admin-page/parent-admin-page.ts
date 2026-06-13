@@ -6,7 +6,6 @@ import {
   min,
   minLength,
   required,
-  submit,
   validate,
 } from '@angular/forms/signals';
 
@@ -24,6 +23,7 @@ import {
   SeasonalMode,
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 
 @Component({
   selector: 'app-parent-admin-page',
@@ -38,6 +38,7 @@ export class ParentAdminPage {
   readonly QUEST_CATEGORY_OPTIONS = QUEST_CATEGORY_OPTIONS;
   readonly RECURRENCE_OPTIONS = RECURRENCE_OPTIONS;
   readonly DIFFICULTY_OPTIONS = DIFFICULTY_OPTIONS;
+  readonly QUEST_PRESET_OPTIONS = QUEST_PRESET_OPTIONS;
   readonly CATEGORY_LABELS = CATEGORY_LABELS;
   readonly RECURRENCE_LABELS = RECURRENCE_LABELS;
   readonly DIFFICULTY_LABELS = DIFFICULTY_LABELS;
@@ -52,6 +53,7 @@ export class ParentAdminPage {
   readonly pendingApprovals = this.familyData.pendingApprovals;
   readonly pendingRewardRequests = this.familyData.pendingRewardRequests;
   readonly editingQuestId = signal('');
+  readonly selectedQuestPresetId = signal<QuestPresetId>('custom');
   readonly lastSavedQuest = signal<{ action: 'created' | 'updated' | 'deleted'; title: string } | null>(null);
   readonly lastBonusAward = signal<{ childName: string; points: number; note: string } | null>(null);
   readonly lastOverrideAction = signal<{ childName: string; questTitle: string; statusLabel: string } | null>(null);
@@ -304,8 +306,8 @@ export class ParentAdminPage {
     });
   }
 
-  onSubmit() {
-    submit(this.questForm, async () => {
+  onSubmit(submitEvent?: Event) {
+    submitWithValidationFocus(this.questForm, submitEvent, async () => {
       const draft = this.buildQuestDraft();
       const editingQuestId = this.editingQuestId();
       this.actionError.set('');
@@ -341,8 +343,8 @@ export class ParentAdminPage {
     });
   }
 
-  awardBonusPoints() {
-    submit(this.bonusForm, async () => {
+  awardBonusPoints(submitEvent?: Event) {
+    submitWithValidationFocus(this.bonusForm, submitEvent, async () => {
       const value = this.bonusForm().value();
       const child = this.familyData.childById(value.childId);
       const note = value.note.trim();
@@ -379,6 +381,7 @@ export class ParentAdminPage {
     }
 
     this.editingQuestId.set(questId);
+    this.selectedQuestPresetId.set('custom');
     this.lastSavedQuest.set(null);
     this.actionError.set('');
     this.questModel.set(this.createQuestFormModel(quest));
@@ -387,6 +390,7 @@ export class ParentAdminPage {
 
   cancelEdit() {
     this.editingQuestId.set('');
+    this.selectedQuestPresetId.set('custom');
     this.actionError.set('');
     this.questModel.set(this.createQuestFormModel());
   }
@@ -518,6 +522,30 @@ export class ParentAdminPage {
     return `${index}-${mode.id}`;
   }
 
+  applyQuestPreset(presetId: string) {
+    this.selectedQuestPresetId.set(isQuestPresetId(presetId) ? presetId : 'custom');
+
+    if (!isQuestPresetId(presetId) || presetId === 'custom') {
+      return;
+    }
+
+    const preset = QUEST_PRESET_MAP[presetId];
+
+    this.questModel.update((model) => ({
+      ...model,
+      title: preset.title,
+      description: preset.description,
+      category: preset.category,
+      points: preset.points,
+      recurrence: preset.recurrence,
+      difficulty: preset.difficulty,
+      instructions: preset.instructions,
+      requiresApproval: preset.requiresApproval,
+      requiredBeforeScreenTime: preset.requiredBeforeScreenTime,
+    }));
+    this.actionError.set('');
+  }
+
   private buildAssignableTargets() {
     const targets = this.familyData.children().map((child) => ({ id: child.id, name: child.name }));
     const personId = this.familyData.currentParentPersonId();
@@ -640,6 +668,123 @@ const DIFFICULTY_OPTIONS: Array<{ value: QuestDifficulty; label: string }> = [
   { value: 'hard', label: 'Hard' },
   { value: 'boss', label: 'Boss' },
 ];
+
+type QuestPresetId =
+  | 'custom'
+  | 'laundry'
+  | 'dishwasher'
+  | 'vacuum'
+  | 'bedroom'
+  | 'trash'
+  | 'petCare'
+  | 'kitchenReset';
+
+interface QuestPreset {
+  title: string;
+  description: string;
+  category: QuestCategory;
+  points: number;
+  recurrence: QuestRecurrence;
+  difficulty: QuestDifficulty;
+  instructions: string;
+  requiresApproval: boolean;
+  requiredBeforeScreenTime: boolean;
+}
+
+const QUEST_PRESET_OPTIONS: Array<{ value: QuestPresetId; label: string }> = [
+  { value: 'custom', label: 'Custom quest' },
+  { value: 'laundry', label: 'Do the laundry' },
+  { value: 'dishwasher', label: 'Empty the dishwasher' },
+  { value: 'vacuum', label: 'Vacuum the main room' },
+  { value: 'bedroom', label: 'Clean bedroom' },
+  { value: 'trash', label: 'Take out trash & recycling' },
+  { value: 'petCare', label: 'Feed or care for the pet' },
+  { value: 'kitchenReset', label: 'Wipe counters & reset kitchen' },
+];
+
+const QUEST_PRESET_MAP: Record<Exclude<QuestPresetId, 'custom'>, QuestPreset> = {
+  laundry: {
+    title: 'Laundry reset',
+    description: 'Wash, dry, fold, and put away one full load of laundry.',
+    category: 'lifeSkill',
+    points: 20,
+    recurrence: 'weekly',
+    difficulty: 'normal',
+    instructions: 'Clothes are folded, sorted, and fully put away where they belong.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: false,
+  },
+  dishwasher: {
+    title: 'Empty the dishwasher',
+    description: 'Unload the clean dishes and return everything to the right cabinets.',
+    category: 'home',
+    points: 10,
+    recurrence: 'daily',
+    difficulty: 'easy',
+    instructions: 'Top and bottom racks are empty and the kitchen is reset when you finish.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: true,
+  },
+  vacuum: {
+    title: 'Vacuum the main room',
+    description: 'Vacuum the shared living area and leave the floor clear and fresh.',
+    category: 'home',
+    points: 15,
+    recurrence: 'weekly',
+    difficulty: 'normal',
+    instructions: 'Floors are vacuumed edge to edge and the vacuum is put back neatly.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: false,
+  },
+  bedroom: {
+    title: 'Clean bedroom',
+    description: 'Reset the bedroom so the floor, bed, and surfaces all feel calm again.',
+    category: 'home',
+    points: 15,
+    recurrence: 'daily',
+    difficulty: 'normal',
+    instructions: 'Bed is made, floor is clear, and anything out of place is put away.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: true,
+  },
+  trash: {
+    title: 'Take out trash and recycling',
+    description: 'Empty the bins and replace liners so the house is ready for the next round.',
+    category: 'family',
+    points: 10,
+    recurrence: 'weekly',
+    difficulty: 'easy',
+    instructions: 'Trash and recycling are taken out fully and new liners are in place afterward.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: false,
+  },
+  petCare: {
+    title: 'Feed and care for the pet',
+    description: 'Handle the feeding routine and make sure the pet basics are covered.',
+    category: 'family',
+    points: 10,
+    recurrence: 'daily',
+    difficulty: 'easy',
+    instructions: 'Food or water is refreshed and the pet area is left tidy when you finish.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: true,
+  },
+  kitchenReset: {
+    title: 'Kitchen counter reset',
+    description: 'Wipe counters and clear the kitchen so the next meal starts with a clean slate.',
+    category: 'home',
+    points: 10,
+    recurrence: 'daily',
+    difficulty: 'easy',
+    instructions: 'Counters are wiped, stray dishes are handled, and the room feels reset.',
+    requiresApproval: true,
+    requiredBeforeScreenTime: true,
+  },
+};
+
+function isQuestPresetId(value: string): value is QuestPresetId {
+  return QUEST_PRESET_OPTIONS.some((option) => option.value === value);
+}
 
 const CATEGORY_LABELS: Record<QuestCategory, string> = {
   home: 'Home',

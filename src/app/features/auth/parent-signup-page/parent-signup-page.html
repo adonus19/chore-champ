@@ -41,9 +41,9 @@
         </p>
       </div>
 
-      <form class="signup-form" (submit)="createParentAccount(); $event.preventDefault()">
+      <form class="signup-form" (submit)="createParentAccount($event); $event.preventDefault()">
         <label class="field">
-          <span class="field__label">Parent display name</span>
+          <span class="field__label required-indicator">Parent display name</span>
           <input
             type="text"
             [formField]="signupForm.displayName"
@@ -57,7 +57,7 @@
         </label>
 
         <label class="field">
-          <span class="field__label">Household name</span>
+          <span class="field__label required-indicator">Household name</span>
           <input
             type="text"
             [formField]="signupForm.householdName"
@@ -71,7 +71,7 @@
         </label>
 
         <label class="field">
-          <span class="field__label">Parent email</span>
+          <span class="field__label required-indicator">Parent email</span>
           <input
             type="email"
             [formField]="signupForm.email"
@@ -85,7 +85,7 @@
         </label>
 
         <label class="field">
-          <span class="field__label">Password</span>
+          <span class="field__label required-indicator">Password</span>
           <input
             type="password"
             [formField]="signupForm.password"
@@ -110,7 +110,7 @@
           <button
             type="submit"
             class="primary-button"
-            [disabled]="!firebaseEnabled || !authReady() || signupForm().invalid() || signupForm().pending()"
+            [disabled]="!firebaseEnabled || !authReady() || signupForm().pending()"
           >
             Create parent account
           </button>

@@ -71,10 +71,10 @@
           </p>
         </div>
 
-        <form class="goal-form" (submit)="onSubmit(); $event.preventDefault()">
+        <form class="goal-form" (submit)="onSubmit($event); $event.preventDefault()">
           <div class="field-grid">
             <label class="field">
-              <span class="field__label">Who is this goal for?</span>
+              <span class="field__label required-indicator">Who is this goal for?</span>
               <select [formField]="goalForm.childId">
                 @for (target of goalTargets(); track target.id) {
                   <option [value]="target.id">{{ target.name }}</option>
@@ -95,7 +95,7 @@
             </label>
 
             <label class="field field--full">
-              <span class="field__label">Goal title</span>
+              <span class="field__label required-indicator">Goal title</span>
               <input [formField]="goalForm.title" placeholder="Books read this year" />
               @if (goalForm.title().touched() && goalForm.title().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.title().errors()) }}</span>
@@ -111,7 +111,7 @@
             </label>
 
             <label class="field">
-              <span class="field__label">Target</span>
+              <span class="field__label required-indicator">Target</span>
               <input type="number" step="1" [formField]="goalForm.target" />
               @if (goalForm.target().touched() && goalForm.target().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.target().errors()) }}</span>
@@ -119,7 +119,7 @@
             </label>
 
             <label class="field field--full">
-              <span class="field__label">Unit</span>
+              <span class="field__label required-indicator">Unit</span>
               <input [formField]="goalForm.unit" placeholder="books, serves, miles, wins" />
               @if (goalForm.unit().touched() && goalForm.unit().errors().length) {
                 <span class="field__error">{{ errorMessage(goalForm.unit().errors()) }}</span>
@@ -140,7 +140,7 @@
           </div>
 
           <fieldset class="choice-group">
-            <legend>Seasonal modes</legend>
+            <legend class="required-indicator">Seasonal modes</legend>
             <div class="choice-grid">
               @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
                 <label class="choice-card">
@@ -158,7 +158,7 @@
 
           <div class="form-actions">
             <div class="action-row">
-              <button type="submit" class="primary-button" [disabled]="goalForm().invalid() || goalForm().pending()">
+              <button type="submit" class="primary-button" [disabled]="goalForm().pending()">
                 {{ editingGoal() ? 'Save goal changes' : 'Add goal to family board' }}
               </button>
 
