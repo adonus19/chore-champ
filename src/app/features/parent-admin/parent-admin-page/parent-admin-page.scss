@@ -107,6 +107,10 @@ legend {
   font-size: 1.02rem;
 }
 
+:is(.preview-card p, .preview-tag, .focus-chip) {
+  overflow-wrap: anywhere;
+}
+
 .hero-callout {
   display: grid;
   gap: 0.5rem;
@@ -208,6 +212,15 @@ legend {
 
 .admin-layout {
   align-items: start;
+}
+
+:is(
+  .preview-card,
+  .review-group__identity,
+  .preview-card__top > div,
+  .review-group__identity > div
+) {
+  min-width: 0;
 }
 
 .panel {
@@ -399,6 +412,7 @@ legend,
   display: flex;
   gap: 0.6rem;
   align-items: baseline;
+  flex-wrap: wrap;
 }
 
 .bonus-log__card span {
@@ -612,6 +626,7 @@ legend,
 
 .review-group__identity {
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .review-group__avatar {
@@ -781,6 +796,11 @@ legend,
   .field-grid,
   .approval-summary,
   .override-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-grid,
+  .toggle-grid {
     grid-template-columns: 1fr;
   }
 
