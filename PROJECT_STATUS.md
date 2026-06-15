@@ -34,6 +34,7 @@ Update this file at the end of each completed implementation pass.
 - The parent quest manager now includes quick-start chore presets so common household tasks can prefill the quest form instead of forcing parents to author every chore from scratch.
 - Signed-in route navigation is now lighter on mobile: non-sensitive guards no longer wait for full household hydration, route chunks preload by role, and the app warms the most-used parent and child pages in the background after sign-in.
 - The app shell now shows active-route state in its primary navigation, surfaces the current page title in the sticky header, and adds a mobile bottom tab bar plus compact back-aware top route bar for phone navigation.
+- The PWA now ships with a custom Adventure Badge icon set for manifest, favicon, and iPhone homescreen use instead of the default Angular branding.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -132,6 +133,7 @@ Update this file at the end of each completed implementation pass.
 - Added shared invalid-submit focus handling across the app, required-field markers on major forms, and parent quest quick-start chore presets to reduce blank-form friction.
 - Reduced mobile route-entry latency by loosening signed-in guard waits, adding background route warmup for signed-in parent and child flows, and preventing child-roster refresh helpers from re-subscribing to the active mode signal during navigation-related sync work.
 - Reworked the app shell navigation so desktop links visibly show the active route, the shell title tracks the current page instead of only the household, and mobile devices get sticky top/bottom navigation that respects safe-area padding and keeps content visible above the tab bar.
+- Replaced the default Angular app icon set with a custom Adventure Badge master plus exported PWA/iPhone/favicon sizes, and moved the manifest and HTML icon tags onto new badge-specific filenames to improve cache busting on installed devices.
 
 ## In Progress
 
