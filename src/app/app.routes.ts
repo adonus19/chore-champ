@@ -21,6 +21,7 @@ export const routes: Routes = [
     canActivate: [signedInGuard],
     loadComponent: () =>
       import('./features/account/family-access-page/family-access-page').then((module) => module.FamilyAccessPage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Family Access',
   },
   {
@@ -28,6 +29,7 @@ export const routes: Routes = [
     canActivate: [parentOnlyGuard],
     loadComponent: () =>
       import('./features/dashboard/dashboard-page/dashboard-page').then((module) => module.DashboardPage),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Family Dashboard',
     pathMatch: 'full',
   },
@@ -36,6 +38,7 @@ export const routes: Routes = [
     canActivate: [childViewerGuard],
     loadComponent: () =>
       import('./features/child-today/child-today-page/child-today-page').then((module) => module.ChildTodayPage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Child Today',
   },
   {
@@ -43,6 +46,7 @@ export const routes: Routes = [
     canActivate: [childViewerGuard],
     loadComponent: () =>
       import('./features/child-profile/child-profile-page/child-profile-page').then((module) => module.ChildProfilePage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Child Profile',
   },
   {
@@ -50,6 +54,7 @@ export const routes: Routes = [
     canActivate: [childViewerGuard],
     loadComponent: () =>
       import('./features/rewards/rewards-page/rewards-page').then((module) => module.RewardsPage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Rewards',
   },
   {
@@ -57,6 +62,7 @@ export const routes: Routes = [
     canActivate: [childViewerGuard],
     loadComponent: () =>
       import('./features/goals/goals-page/goals-page').then((module) => module.GoalsPage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Goals',
   },
   {
@@ -64,6 +70,7 @@ export const routes: Routes = [
     canActivate: [childViewerGuard],
     loadComponent: () =>
       import('./features/journal/journal-page/journal-page').then((module) => module.JournalPage),
+    data: { preload: 'signedIn' },
     title: 'Chore Champ | Journal',
   },
   {
@@ -71,6 +78,7 @@ export const routes: Routes = [
     canActivate: [parentOnlyGuard],
     loadComponent: () =>
       import('./features/parent-admin/parent-admin-page/parent-admin-page').then((module) => module.ParentAdminPage),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Parent Quest Manager',
   },
   {
@@ -80,6 +88,7 @@ export const routes: Routes = [
       import('./features/child-profile/parent-child-profiles-page/parent-child-profiles-page').then(
         (module) => module.ParentChildProfilesPage,
       ),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Parent Child Profiles',
   },
   {
@@ -87,6 +96,7 @@ export const routes: Routes = [
     canActivate: [parentOnlyGuard],
     loadComponent: () =>
       import('./features/goals/parent-goals-page/parent-goals-page').then((module) => module.ParentGoalsPage),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Parent Goals Manager',
   },
   {
@@ -94,6 +104,7 @@ export const routes: Routes = [
     canActivate: [parentOnlyGuard],
     loadComponent: () =>
       import('./features/parent-self/my-board-page/my-board-page').then((module) => module.MyBoardPage),
+    data: { preload: 'parent' },
     title: 'Chore Champ | My Goals & Quests',
   },
   {
@@ -101,6 +112,7 @@ export const routes: Routes = [
     canActivate: [parentOnlyGuard],
     loadComponent: () =>
       import('./features/privileges/privileges-page/privileges-page').then((module) => module.PrivilegesPage),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Privilege Settings',
   },
   {
@@ -110,6 +122,7 @@ export const routes: Routes = [
       import('./features/seasonal-modes/seasonal-modes-page/seasonal-modes-page').then(
         (module) => module.SeasonalModesPage,
       ),
+    data: { preload: 'parent' },
     title: 'Chore Champ | Seasonal Modes',
   },
   {

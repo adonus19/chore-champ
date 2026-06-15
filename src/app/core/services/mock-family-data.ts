@@ -867,7 +867,8 @@ export class MockFamilyData {
       return;
     }
 
-    const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, this.activeModeId());
+    const fallbackModeId = untracked(() => this.activeModeId());
+    const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, fallbackModeId);
     this.replaceChildren(children);
   }
 
@@ -1726,7 +1727,8 @@ export class MockFamilyData {
       this.firebasePrivilegeRules.startSync(profile);
       this.firebaseQuestData.startSync(profile);
       this.firebaseRewardData.startSync(profile);
-      const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, this.activeModeId());
+      const fallbackModeId = untracked(() => this.activeModeId());
+      const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, fallbackModeId);
 
       if (loadToken !== this.firebaseHouseholdSyncToken) {
         return;
