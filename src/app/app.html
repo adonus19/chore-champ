@@ -1,11 +1,30 @@
-<div class="app-shell">
+<div class="app-shell" [class.app-shell--with-mobile-nav]="showMobileBottomNav()">
   <header class="shell-bar">
     <div class="shell-brand">
-      <a class="shell-brand__mark" [routerLink]="brandLink()">Chore Champ</a>
+      @if (showMobileBackButton()) {
+        <button
+          type="button"
+          class="shell-brand__back"
+          (click)="goBack()"
+          [attr.aria-label]="'Go back from ' + currentPageTitle()"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="iconPath('back')" />
+          </svg>
+        </button>
+      }
 
-      <div>
-        <p class="shell-brand__eyebrow">Family Quest Board</p>
-        <p class="shell-brand__title">{{ shellTitle() }}</p>
+      <a
+        class="shell-brand__mark"
+        [class.shell-brand__mark--compact-hidden]="showMobileBackButton()"
+        [routerLink]="brandLink()"
+      >
+        Chore Champ
+      </a>
+
+      <div class="shell-brand__copy">
+        <p class="shell-brand__eyebrow">{{ shellEyebrow() }}</p>
+        <p class="shell-brand__title">{{ currentPageTitle() }}</p>
       </div>
     </div>
 
@@ -15,8 +34,16 @@
     </div>
 
     <nav class="shell-nav" aria-label="App navigation">
-      @for (link of navLinks(); track link.path) {
-        <a class="shell-nav__link" [class.shell-nav__link--strong]="link.strong" [routerLink]="link.path">
+      @for (link of primaryNavLinks(); track link.path) {
+        <a
+          #desktopLinkActive="routerLinkActive"
+          class="shell-nav__link"
+          [class.shell-nav__link--strong]="link.strong"
+          routerLinkActive="shell-nav__link--active"
+          [routerLinkActiveOptions]="{ exact: link.exact }"
+          [routerLink]="link.path"
+          [attr.aria-current]="desktopLinkActive.isActive ? 'page' : null"
+        >
           {{ link.label }}
         </a>
       }
@@ -31,6 +58,18 @@
         <button type="button" class="shell-nav__button" (click)="signOut()">Sign out</button>
       }
     </nav>
+
+    <div class="shell-mobile-actions">
+      @if (showInstallAction()) {
+        <button type="button" class="shell-mobile-actions__button shell-mobile-actions__button--install" (click)="installApp()">
+          {{ mobileInstallLabel() }}
+        </button>
+      }
+
+      @if (isSignedIn()) {
+        <button type="button" class="shell-mobile-actions__button" (click)="signOut()">Sign out</button>
+      }
+    </div>
   </header>
 
   @if (installGuideOpen()) {
@@ -48,5 +87,27 @@
     </section>
   }
 
-  <router-outlet />
+  <main class="app-shell__content">
+    <router-outlet />
+  </main>
+
+  @if (showMobileBottomNav()) {
+    <nav class="mobile-tabbar" aria-label="Primary app navigation">
+      @for (link of mobileNavLinks(); track link.path) {
+        <a
+          #mobileLinkActive="routerLinkActive"
+          class="mobile-tabbar__link"
+          routerLinkActive="mobile-tabbar__link--active"
+          [routerLinkActiveOptions]="{ exact: link.exact }"
+          [routerLink]="link.path"
+          [attr.aria-current]="mobileLinkActive.isActive ? 'page' : null"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="iconPath(link.icon)" />
+          </svg>
+          <span>{{ link.label }}</span>
+        </a>
+      }
+    </nav>
+  }
 </div>

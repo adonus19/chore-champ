@@ -33,6 +33,7 @@ Update this file at the end of each completed implementation pass.
 - Form-heavy flows now keep submit buttons enabled through invalid states, show required-field asterisks, block invalid API calls, and auto-scroll to the first invalid field after a failed submit.
 - The parent quest manager now includes quick-start chore presets so common household tasks can prefill the quest form instead of forcing parents to author every chore from scratch.
 - Signed-in route navigation is now lighter on mobile: non-sensitive guards no longer wait for full household hydration, route chunks preload by role, and the app warms the most-used parent and child pages in the background after sign-in.
+- The app shell now shows active-route state in its primary navigation, surfaces the current page title in the sticky header, and adds a mobile bottom tab bar plus compact back-aware top route bar for phone navigation.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -130,6 +131,7 @@ Update this file at the end of each completed implementation pass.
 - Removed startup leakage of demo household data for Firebase-enabled sessions by clearing seeded household collections in auth-backed mode and waiting for real household hydration before signed-in routes render.
 - Added shared invalid-submit focus handling across the app, required-field markers on major forms, and parent quest quick-start chore presets to reduce blank-form friction.
 - Reduced mobile route-entry latency by loosening signed-in guard waits, adding background route warmup for signed-in parent and child flows, and preventing child-roster refresh helpers from re-subscribing to the active mode signal during navigation-related sync work.
+- Reworked the app shell navigation so desktop links visibly show the active route, the shell title tracks the current page instead of only the household, and mobile devices get sticky top/bottom navigation that respects safe-area padding and keeps content visible above the tab bar.
 
 ## In Progress
 
