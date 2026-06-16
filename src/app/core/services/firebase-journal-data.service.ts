@@ -93,7 +93,7 @@ export class FirebaseJournalDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep journal entries in sync for this household.');
+        this._lastSyncError.set("We couldn't keep journal entries updated right now.");
       },
     );
   }
@@ -122,7 +122,7 @@ export class FirebaseJournalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore journal saves yet.',
+        message: 'Journal saving is not ready yet. Refresh and try again.',
       };
     }
 
@@ -187,7 +187,7 @@ export class FirebaseJournalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore journal replies yet.',
+        message: 'Journal replies are not ready yet. Refresh and try again.',
       };
     }
 
@@ -205,7 +205,7 @@ export class FirebaseJournalDataService {
       if (!entrySnapshot.exists()) {
         return {
           ok: false,
-          message: 'That journal entry could not be found in Firestore. Refresh the dashboard and try again.',
+          message: 'That journal entry could not be found. Refresh and try again.',
         };
       }
 
@@ -337,15 +337,15 @@ function describeJournalMutationError(error: unknown, action: 'reply' | 'save') 
   switch (code) {
     case 'invalid-argument':
     case 'firestore/invalid-argument':
-      return 'The journal entry included a Firestore-invalid value. Check the reflection and try again.';
+      return 'The journal entry has a value that could not be saved. Check it and try again.';
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return `Firestore blocked this journal ${action} action. Update the household journal security rules before trying again.`;
+      return `That journal ${action} action is not allowed right now.`;
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while syncing the journal. Check the network and try again.';
+      return "We couldn't reach the server while saving the journal. Check the network and try again.";
     default:
-      return `The Firestore journal ${action} action could not be completed right now.`;
+      return `The journal ${action} action could not be completed right now.`;
   }
 }
 

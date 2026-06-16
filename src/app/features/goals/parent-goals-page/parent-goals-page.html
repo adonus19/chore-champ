@@ -4,7 +4,7 @@
   @if (lastSavedGoal(); as savedGoal) {
     <section class="success-banner" role="status" aria-live="polite">
       <strong>Goal {{ savedGoal.action }}:</strong>
-      {{ savedGoal.title }} is now saved to the {{ savedGoal.source === 'firebase' ? 'Firestore household goal board' : 'local demo goal board' }}.
+      {{ savedGoal.title }} is now saved to the family goal board.
       @if (savedGoal.audience === 'self') {
         Open My board to track and update it.
       } @else {
@@ -15,7 +15,7 @@
 
   @if (actionError()) {
     <section class="error-banner" role="alert" aria-live="assertive">
-      <strong>Goal sync issue:</strong> {{ actionError() }}
+      <strong>Goal update issue:</strong> {{ actionError() }}
     </section>
   }
 

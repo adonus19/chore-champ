@@ -170,7 +170,7 @@ export class FirebaseChildProfilesService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before creating child profiles.',
+        message: 'Child profile saving is not ready for this build yet.',
       };
     }
 
@@ -292,7 +292,7 @@ export class FirebaseChildProfilesService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before saving child profiles.',
+        message: 'Child profile saving is not ready for this build yet.',
       };
     }
 
@@ -373,7 +373,7 @@ export class FirebaseChildProfilesService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before enabling child login.',
+        message: 'Child login setup is not ready for this build yet.',
       };
     }
 
@@ -418,7 +418,7 @@ export class FirebaseChildProfilesService {
     if (!parentMembershipSnapshot.exists()) {
       return {
         ok: false,
-        message: 'The signed-in parent membership record could not be found in Firestore. Refresh the session and try again.',
+        message: "We couldn't verify this parent's household access yet. Refresh and try again.",
       };
     }
 
@@ -430,8 +430,7 @@ export class FirebaseChildProfilesService {
     if (!parentCanManageCredentials) {
       return {
         ok: false,
-        message:
-          'This parent membership is missing the Firestore child-credential permission. Add permissions.canManageChildCredentials = true on the parent membership record, or use the backward-compatible rules update in FIREBASE_SETUP.md.',
+        message: 'This parent account does not currently have permission to manage child sign-ins.',
       };
     }
 
@@ -722,13 +721,13 @@ function describeChildProfileError(error: unknown, action: 'create' | 'update') 
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return `Firestore blocked the child profile ${action}. Update the child-profile security rules before trying again.`;
+      return `That child profile ${action} action is not allowed right now.`;
     case 'not-found':
     case 'firestore/not-found':
       return 'One of the child profile documents could not be found. Refresh the roster and try again.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while saving the child profile. Check the network and try again.';
+      return "We couldn't reach the server while saving the child profile. Check the network and try again.";
     default:
       return `The child profile ${action} could not be completed right now.`;
   }
@@ -752,7 +751,7 @@ function describeChildLoginEnableError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the child login enablement write. Update the child-login security rules before trying again.';
+      return 'That child login setup is not allowed right now.';
     case 'auth/email-already-in-use':
       return 'The hidden child sign-in email alias is already in use. Refresh and try again.';
     default:

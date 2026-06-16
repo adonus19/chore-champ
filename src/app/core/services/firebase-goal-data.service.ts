@@ -92,7 +92,7 @@ export class FirebaseGoalDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep goals in sync for this household.');
+        this._lastSyncError.set("We couldn't keep goals updated right now.");
       },
     );
   }
@@ -112,7 +112,7 @@ export class FirebaseGoalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore goal creation yet.',
+        message: 'Goal saving is not ready yet. Refresh and try again.',
       };
     }
 
@@ -155,7 +155,7 @@ export class FirebaseGoalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore goal editing yet.',
+        message: 'Goal editing is not ready yet. Refresh and try again.',
       };
     }
 
@@ -195,7 +195,7 @@ export class FirebaseGoalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore goal deletion yet.',
+        message: 'Goal removal is not ready yet. Refresh and try again.',
       };
     }
 
@@ -219,7 +219,7 @@ export class FirebaseGoalDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore goal progress yet.',
+        message: 'Goal progress is not ready yet. Refresh and try again.',
       };
     }
 
@@ -356,20 +356,20 @@ function describeGoalMutationError(error: unknown, action: 'delete' | 'progress'
   const message = error instanceof Error ? error.message : '';
 
   if (message === 'goal-missing') {
-    return 'That goal could not be found in Firestore. Refresh the goal board and try again.';
+    return 'That goal could not be found. Refresh the goal board and try again.';
   }
 
   switch (code) {
     case 'invalid-argument':
     case 'firestore/invalid-argument':
-      return 'The goal data included a Firestore-invalid value. Check the fields and try again.';
+      return 'The goal has a value that could not be saved. Check the fields and try again.';
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return `Firestore blocked this goal ${action} action. Update the household goal security rules before trying again.`;
+      return `That goal ${action} action is not allowed right now.`;
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while syncing goals. Check the network and try again.';
+      return "We couldn't reach the server while saving goals. Check the network and try again.";
     default:
-      return `The Firestore goal ${action} action could not be completed right now.`;
+      return `The goal ${action} action could not be completed right now.`;
   }
 }

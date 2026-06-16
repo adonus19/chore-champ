@@ -10,7 +10,7 @@
       aria-live="polite"
     >
       <strong>
-        {{ feedback.kind === 'error' ? 'Privilege sync issue:' : feedback.kind === 'warning' ? 'Privilege heads up:' : 'Privilege updated:' }}
+        {{ feedback.kind === 'error' ? 'Privilege update issue:' : feedback.kind === 'warning' ? 'Privilege heads up:' : 'Privilege updated:' }}
       </strong>
       {{ feedback.text }}
     </section>
@@ -18,7 +18,7 @@
 
   @if (privilegeRulesSyncError()) {
     <section class="feedback-banner feedback-banner--warning" role="status" aria-live="polite">
-      <strong>Privilege sync warning:</strong> {{ privilegeRulesSyncError() }}
+      <strong>Privilege notice:</strong> {{ privilegeRulesSyncError() }}
     </section>
   }
 
@@ -86,7 +86,13 @@
               </label>
 
               <label class="field field--full">
-                <span class="field__label required-indicator">Requirements</span>
+                <span class="field__label required-indicator">
+                  Requirements
+                  <app-info-tooltip
+                    ariaLabel="Explain privilege requirements"
+                    text="Add one requirement per line. Keep them specific and observable so kids know exactly what qualifies."
+                  />
+                </span>
                 <textarea
                   [formField]="privilegeRuleForm.requirementLines"
                   rows="6"
@@ -103,7 +109,13 @@
             </div>
 
             <fieldset class="choice-group">
-              <legend class="required-indicator">Seasonal modes</legend>
+              <legend class="required-indicator">
+                Seasonal modes
+                <app-info-tooltip
+                  ariaLabel="Explain privilege seasonal modes"
+                  text="Choose which family rhythms this privilege rule should apply to."
+                />
+              </legend>
               <div class="choice-grid">
                 @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
                   <label class="choice-card" [style.--choice-accent]="selectedRuleMeta().accent">
@@ -143,8 +155,7 @@
               </div>
 
               <p class="form-helper">
-                Signed-in household accounts save this to Firestore. Demo mode keeps it local to this browser, and in
-                both cases the child reminders and dashboard guidance refresh right away.
+                Changes here update child reminders and dashboard guidance right away.
               </p>
             </div>
           </form>

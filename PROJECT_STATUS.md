@@ -159,12 +159,21 @@ Update this file at the end of each completed implementation pass.
 
 ## Backlog
 
+- Guided tour for new users so families can learn the app through an in-product tutorial.
+- Mascot or guide-character system for onboarding, encouragement, and younger-kid support across the app.
 - Custom seasonal mode creation
 - Parents can assign themselves quests so they can hold each other accountable.
 - Children can view parent quests and encourage their parents.
-- Shared child accounts across separate-parent households so the child has one consistent account across both homes.
+- Shared-child follow-through beyond the current link flow:
+  richer `childRequest` approvals, clearer cross-household status messaging, and stronger separate-household switching rules.
 - Skipped for this MVP: parent multi-household/co-parent invite flows so adults can belong to more than one household without manual Firestore setup.
-- Remove the prototype device-stored `latest child link code` helper before release so the receiving-household form is always empty and relies on manual paste only.
+- Owner-only parent/child removal flows.
+- Child sign-in recovery and maintenance:
+  reveal username, reset password, and rename usernames after setup.
+- Co-parent password reset or first-login credential reset flow.
+- Assigning personal parent items to co-parents if we expand co-parent self-board support later.
+- Secure backend hardening for prototype client-side writes:
+  move signup bootstrap, child management, child credential setup, child-link issuance/acceptance, and other sensitive household mutations behind backend or callable-function paths.
 - Dark mode styling preference for parents and kids.
 - Expanded avatar options plus custom avatar uploads.
 - Emoji or custom artwork reactions for hearts, stars, and similar encouragement moments.
@@ -172,7 +181,6 @@ Update this file at the end of each completed implementation pass.
 - Confetti and other celebration animations.
 - Younger-kid character companions or caricatures for encouragement during task flows.
 - Smooth forward/back page transition animations.
-- Guided tour for new users so families can learn the app through an in-product tutorial.
 - Advanced child-initiated household switching rules where switching from household `A` to `B` may require both permission to leave `A` and permission to enter `B`.
 
 ## Notes

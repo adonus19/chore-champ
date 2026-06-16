@@ -1,0 +1,24 @@
+<button
+  type="button"
+  class="info-tooltip__button"
+  [attr.aria-controls]="panelId"
+  [attr.aria-expanded]="open()"
+  [attr.aria-label]="ariaLabel()"
+  (click)="toggle($event)"
+>
+  <span aria-hidden="true">i</span>
+</button>
+
+@if (open()) {
+  <div
+    class="info-tooltip__panel"
+    [class.info-tooltip__panel--end]="align() === 'end'"
+    [id]="panelId"
+    role="note"
+  >
+    @if (title()) {
+      <strong class="info-tooltip__title">{{ title() }}</strong>
+    }
+    <p>{{ text() }}</p>
+  </div>
+}

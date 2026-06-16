@@ -24,10 +24,11 @@ import {
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
+import { InfoTooltip } from '../../../shared/ui/info-tooltip/info-tooltip';
 
 @Component({
   selector: 'app-parent-admin-page',
-  imports: [FormField, RouterLink],
+  imports: [FormField, RouterLink, InfoTooltip],
   templateUrl: './parent-admin-page.html',
   styleUrl: './parent-admin-page.scss',
 })
@@ -458,8 +459,8 @@ export class ParentAdminPage {
     this.rewardFeedback.set({
       kind: 'success',
       text: item
-        ? `${item.child.name}'s "${item.reward.title}" is approved and synced.`
-        : 'That reward approval is synced.',
+        ? `${item.child.name}'s "${item.reward.title}" is approved.`
+        : 'That reward approval is saved.',
     });
   }
 

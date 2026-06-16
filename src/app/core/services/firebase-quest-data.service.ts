@@ -108,7 +108,7 @@ export class FirebaseQuestDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep the quest library in sync for this household.');
+        this._lastSyncError.set("We couldn't keep the quest library updated right now.");
       },
     );
 
@@ -124,7 +124,7 @@ export class FirebaseQuestDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep the quest approvals in sync for this household.');
+        this._lastSyncError.set("We couldn't keep quest approvals updated right now.");
       },
     );
   }
@@ -147,7 +147,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore quest creation yet.',
+        message: 'Quest creation is not ready yet. Refresh and try again.',
       };
     }
 
@@ -185,7 +185,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore quest editing yet.',
+        message: 'Quest editing is not ready yet. Refresh and try again.',
       };
     }
 
@@ -220,7 +220,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore quest deletion yet.',
+        message: 'Quest removal is not ready yet. Refresh and try again.',
       };
     }
 
@@ -257,7 +257,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore quest completion yet.',
+        message: 'Quest completion is not ready yet. Refresh and try again.',
       };
     }
 
@@ -408,7 +408,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore quest overrides yet.',
+        message: 'Quest overrides are not ready yet. Refresh and try again.',
       };
     }
 
@@ -520,7 +520,7 @@ export class FirebaseQuestDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore approval updates yet.',
+        message: 'Quest approvals are not ready yet. Refresh and try again.',
       };
     }
 
@@ -727,9 +727,9 @@ function describeQuestMutationError(
 
   switch (message) {
     case 'quest-missing':
-      return 'That quest no longer exists in Firestore. Refresh the household board and try again.';
+      return 'That quest could not be found. Refresh the household board and try again.';
     case 'completion-missing':
-      return 'That quest report could not be found in Firestore. Refresh the review queue and try again.';
+      return 'That quest report could not be found. Refresh the review queue and try again.';
     default:
       break;
   }
@@ -737,14 +737,14 @@ function describeQuestMutationError(
   switch (code) {
     case 'invalid-argument':
     case 'firestore/invalid-argument':
-      return 'The quest data included a Firestore-invalid value. Check optional fields like due date and try again.';
+      return 'The quest has a value that could not be saved. Check the fields and try again.';
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return `Firestore blocked this quest ${action} action. Update the household quest security rules before trying again.`;
+      return `That quest ${action} action is not allowed right now.`;
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while syncing quest data. Check the network and try again.';
+      return "We couldn't reach the server while saving quest data. Check the network and try again.";
     default:
-      return `The Firestore quest ${action} action could not be completed right now.`;
+      return `The quest ${action} action could not be completed right now.`;
   }
 }

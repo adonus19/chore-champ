@@ -120,7 +120,7 @@ export class FirebaseHouseholdAccessService {
         void this.hydrateHouseholds(snapshot.docs);
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep the household access list in sync for this account.');
+        this._lastSyncError.set("We couldn't keep the household list updated right now.");
       },
     );
   }
@@ -352,7 +352,7 @@ export class FirebaseHouseholdAccessService {
       this._accessibleHouseholds.set(households.sort((left, right) => left.name.localeCompare(right.name)));
       this._lastSyncError.set('');
     } catch {
-      this._lastSyncError.set('Firestore could not finish loading the accessible household list for this account.');
+      this._lastSyncError.set("We couldn't finish loading the households for this account.");
     }
   }
 
@@ -478,11 +478,11 @@ function describeHouseholdMutationError(error: unknown, action: 'switch' | 'poin
     case 'permission-denied':
     case 'firestore/permission-denied':
       return action === 'switch'
-        ? 'Firestore blocked this household switch. Update the household-switch security rules before trying again.'
-        : 'Firestore blocked the parent-controlled household switch. Update the child household-switch security rules before trying again.';
+        ? 'That household switch is not allowed right now.'
+        : "We couldn't point this child account to the household right now.";
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while switching households. Check the network and try again.';
+      return "We couldn't reach the server while switching households. Check the network and try again.";
     default:
       return action === 'switch'
         ? 'The household switch could not be completed right now.'

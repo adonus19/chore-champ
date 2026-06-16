@@ -14,12 +14,9 @@ import { childUsernameHelpText, normalizeChildUsername, suggestChildUsername } f
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
 import { generateTempPassword } from '../../../core/utils/temp-password';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { InfoTooltip } from '../../../shared/ui/info-tooltip/info-tooltip';
 
 type ProfileKind = 'child' | 'parent';
-
-// Prototype-only convenience for same-device testing. Remove before release so shared-child acceptance
-// always starts empty and requires the receiving parent to paste the code manually.
-const LATEST_CHILD_LINK_STORAGE_KEY = 'chore-champ.latest-child-link';
 
 interface LatestChildLink {
   childId: string;
@@ -30,7 +27,7 @@ interface LatestChildLink {
 
 @Component({
   selector: 'app-parent-child-profiles-page',
-  imports: [FormField, RouterLink],
+  imports: [FormField, RouterLink, InfoTooltip],
   templateUrl: './parent-child-profiles-page.html',
   styleUrl: './parent-child-profiles-page.scss',
 })
@@ -51,7 +48,7 @@ export class ParentChildProfilesPage {
     { action: 'created' | 'updated' | 'loginEnabled'; name: string; source: 'firebase' | 'local' } | null
   >(null);
   readonly householdSwitchFeedback = signal<{ kind: 'error' | 'success' | 'warning'; text: string } | null>(null);
-  readonly latestCreatedLink = signal<LatestChildLink | null>(readStoredLatestChildLink());
+  readonly latestCreatedLink = signal<LatestChildLink | null>(null);
   readonly pendingHouseholdChildId = signal('');
   readonly pendingLinkChildId = signal('');
   readonly saveError = signal('');
@@ -148,9 +145,7 @@ export class ParentChildProfilesPage {
       {
         label: 'Children',
         value: children.length.toString(),
-        hint: this.usesFirebaseChildProfiles()
-          ? 'Profiles currently active in this Firestore household'
-          : 'Profiles currently active in the mock family',
+        hint: 'Profiles currently active in this family',
       },
       {
         label: 'Total Points',
@@ -175,7 +170,6 @@ export class ParentChildProfilesPage {
       summary: this.familyData.getChildSummary(child.id, child.activeModeId),
     })),
   );
-  readonly canUseLatestLinkCode = computed(() => Boolean(this.latestCreatedLink()?.code));
 
   onSubmit(submitEvent?: Event) {
     submitWithValidationFocus(this.childForm, submitEvent, async () => {
@@ -189,7 +183,7 @@ export class ParentChildProfilesPage {
           : await this.firebaseChildProfiles.createChildProfile(draft, this.activeMode().id);
 
         if (!result.ok || !result.child) {
-          this.saveError.set(result.message ?? 'The Firestore child profile could not be saved yet.');
+          this.saveError.set(result.message ?? 'The child profile could not be saved yet.');
           return;
         }
 
@@ -351,7 +345,6 @@ export class ParentChildProfilesPage {
     } satisfies LatestChildLink;
 
     this.latestCreatedLink.set(latestLink);
-    storeLatestChildLink(latestLink);
     this.householdSwitchFeedback.set({
       kind: 'success',
       text: `${result.childName}'s household link code is ready. Sign in to the receiving household and paste the code into the link panel below.`,
@@ -379,17 +372,6 @@ export class ParentChildProfilesPage {
     });
   }
 
-  useLatestChildLinkCode() {
-    const latestLink = this.latestCreatedLink();
-
-    if (!latestLink) {
-      return;
-    }
-
-    this.acceptLinkModel.set(this.createAcceptLinkFormModel(latestLink.code));
-    this.acceptLinkError.set('');
-  }
-
   onAcceptChildHouseholdLink(submitEvent?: Event) {
     submitWithValidationFocus(this.acceptLinkForm, submitEvent, async () => {
       this.acceptLinkError.set('');
@@ -406,12 +388,6 @@ export class ParentChildProfilesPage {
       }
 
       this.familyData.upsertChildProfile(result.child);
-
-      if (normalizeChildLinkCode(formValue.code) === normalizeChildLinkCode(this.latestCreatedLink()?.code ?? '')) {
-        clearStoredLatestChildLink();
-        this.latestCreatedLink.set(null);
-      }
-
       this.acceptLinkModel.set(this.createAcceptLinkFormModel());
       this.householdSwitchFeedback.set({
         kind: 'success',
@@ -510,46 +486,5 @@ export class ParentChildProfilesPage {
       email: '',
       themeColor: '#4f7cff',
     };
-  }
-}
-
-function readStoredLatestChildLink(): LatestChildLink | null {
-  try {
-    const rawValue = globalThis.localStorage?.getItem(LATEST_CHILD_LINK_STORAGE_KEY);
-
-    if (!rawValue) {
-      return null;
-    }
-
-    const parsed = JSON.parse(rawValue) as Partial<LatestChildLink>;
-
-    if (!parsed.code || !parsed.childId || !parsed.childName || !parsed.expiresAtLabel) {
-      return null;
-    }
-
-    return {
-      childId: parsed.childId,
-      childName: parsed.childName,
-      code: parsed.code,
-      expiresAtLabel: parsed.expiresAtLabel,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function storeLatestChildLink(link: LatestChildLink) {
-  try {
-    globalThis.localStorage?.setItem(LATEST_CHILD_LINK_STORAGE_KEY, JSON.stringify(link));
-  } catch {
-    // Ignore local storage failures so link creation still succeeds.
-  }
-}
-
-function clearStoredLatestChildLink() {
-  try {
-    globalThis.localStorage?.removeItem(LATEST_CHILD_LINK_STORAGE_KEY);
-  } catch {
-    // Ignore local storage failures so acceptance still succeeds.
   }
 }

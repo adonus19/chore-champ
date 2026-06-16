@@ -125,10 +125,7 @@ export class JournalPage {
 
         this.actionFeedback.set({
           kind: 'success',
-          text:
-            result.source === 'firebase'
-              ? "Today's reflection is saved to the household journal and will sync for parents."
-              : "Today's reflection is saved in the local demo journal.",
+          text: "Today's reflection is saved and ready for parents to see.",
         });
       } finally {
         this.isSaving.set(false);

@@ -51,14 +51,14 @@ export class FirebaseAccountBootstrapService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys to the environment files first.',
+        message: 'Family setup is not ready for this build yet.',
       };
     }
 
     if (!currentUser?.uid) {
       return {
         ok: false,
-        message: 'Sign in or create the Firebase Auth user first, then finish account setup.',
+        message: 'Sign in or create the parent account first, then finish setup.',
       };
     }
 
@@ -87,7 +87,7 @@ export class FirebaseAccountBootstrapService {
           if (existingAccount.accountType && existingAccount.accountType !== 'parent') {
             return {
               ok: false,
-              message: 'This Firebase account is already linked to a child lane, so it cannot bootstrap a parent household.',
+              message: 'This account is already linked to a child profile and cannot start a parent household.',
             };
           }
 
@@ -222,11 +222,11 @@ function describeBootstrapError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the parent account bootstrap write. Update the signup rules so parent bootstrap can create the matching people document before trying again.';
+      return 'We could not finish setting up this family right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while creating the family workspace. Check the network and try again.';
+      return "We couldn't reach the server while creating the family space. Check the network and try again.";
     default:
-      return 'The parent account was created in Firebase Auth, but the family workspace bootstrap could not finish yet.';
+      return 'The parent account was created, but the family setup could not finish yet.';
   }
 }

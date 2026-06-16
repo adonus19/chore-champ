@@ -86,10 +86,9 @@ export class FamilyAccessPage {
     }
 
     return {
-      eyebrow: 'Mock sign-in',
+      eyebrow: 'Sign in',
       title: this.familyName,
-      message:
-        'Pick a parent or child door to sign in and open the right flow. Firebase auth comes next, but the role split is already active now.',
+      message: 'Pick parent or child to open the right view for this family.',
     };
   });
   readonly householdOptions = computed(() => {
@@ -144,7 +143,7 @@ export class FamilyAccessPage {
 
     return {
       title: 'Household access',
-      copy: 'Sign in first so the app can load the correct household memberships for this account.',
+      copy: 'Sign in first so we can show the households linked to this account.',
     };
   });
   readonly launchStats = computed(() => {
@@ -154,7 +153,7 @@ export class FamilyAccessPage {
       {
         label: 'Current mode',
         value: snapshot.currentMode.name,
-        hint: 'The whole mock family is moving in this rhythm right now',
+        hint: 'The whole family is moving in this rhythm right now',
       },
       {
         label: 'Ready for screens',
@@ -204,7 +203,7 @@ export class FamilyAccessPage {
 
     return {
       title: 'One family, clear sign-in lanes',
-      copy: 'This shared-device entry point now acts like a lightweight auth door: parents head into admin tools, and kids land in their own daily lane.',
+      copy: 'This shared-device sign-in screen keeps parent tools and child views clearly separated.',
     };
   });
 

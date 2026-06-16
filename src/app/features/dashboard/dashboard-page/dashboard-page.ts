@@ -127,10 +127,7 @@ export class DashboardPage {
 
     this.reviewFeedback.set({
       kind: 'success',
-      text:
-        result.source === 'firebase'
-          ? `${mode?.name ?? 'That mode'} is now live for the household and will sync to child boards.`
-          : `${mode?.name ?? 'That mode'} is now live in the local demo flow.`,
+      text: `${mode?.name ?? 'That mode'} is now live for your family.`,
     });
   }
 
@@ -152,8 +149,8 @@ export class DashboardPage {
     this.reviewFeedback.set({
       kind: 'success',
       text: item
-        ? `${item.child.name}'s "${item.quest.title}" is approved and synced.`
-        : 'That quest approval is synced.',
+        ? `${item.child.name}'s "${item.quest.title}" is approved.`
+        : 'That quest approval is saved.',
     });
   }
 
@@ -198,8 +195,8 @@ export class DashboardPage {
     this.reviewFeedback.set({
       kind: 'success',
       text: item
-        ? `${item.child.name}'s "${item.reward.title}" is approved and synced.`
-        : 'That reward approval is synced.',
+        ? `${item.child.name}'s "${item.reward.title}" is approved.`
+        : 'That reward approval is saved.',
     });
   }
 

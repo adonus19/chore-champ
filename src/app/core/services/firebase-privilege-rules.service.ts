@@ -89,7 +89,7 @@ export class FirebasePrivilegeRulesService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep privilege rules in sync for this household.');
+        this._lastSyncError.set("We couldn't keep privilege rules updated right now.");
       },
     );
   }
@@ -115,7 +115,7 @@ export class FirebasePrivilegeRulesService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore privilege settings yet.',
+        message: 'Privilege settings are not ready yet. Refresh and try again.',
       };
     }
 
@@ -271,10 +271,10 @@ function describePrivilegeMutationError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked this privilege-rule save. Update the household privilege security rules before trying again.';
+      return 'That privilege change is not allowed right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while saving privilege settings. Check the network and try again.';
+      return "We couldn't reach the server while saving privilege settings. Check the network and try again.";
     default:
       return 'The privilege rule could not be saved right now.';
   }

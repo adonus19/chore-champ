@@ -23,17 +23,15 @@ export class LoginPage {
 
   readonly firebaseEnabled = this.firebaseAuth.firebaseEnabled;
   readonly authReady = this.firebaseAuth.authReady;
-  readonly parentCodeHint = this.familyData.demoParentAccessCode;
-  readonly childCodeHints = computed(() => this.familyData.demoChildAccessCodes().map((item) => item.code));
   readonly noteContent = computed(() =>
     this.firebaseEnabled
       ? {
-          heading: 'Firebase Auth and account bootstrap are wired in',
-          copy: 'Email/password sign-in is active now. After login, the app resolves Firestore account data to decide whether to open the parent lane or the correct child board.',
+          heading: 'Secure sign-in is ready',
+          copy: 'Sign in with your email and password. After that, the app opens the right family view for this account.',
         }
       : {
-          heading: 'Demo auth fallback is still active',
-          copy: 'Firebase wiring is in place, but the project keys are still blank. Demo codes remain available so the prototype keeps working.',
+          heading: 'Sign-in setup is incomplete',
+          copy: 'This build is missing the secure sign-in settings right now.',
         },
   );
   readonly parentError = signal('');
@@ -54,34 +52,34 @@ export class LoginPage {
   });
   readonly parentDemoForm = form(this.parentDemoModel, (path) => {
     required(path.code, {
-      message: 'Enter the parent demo code to open the family lane.',
+      message: 'Enter the parent access code to open the family lane.',
     });
   });
   readonly childDemoForm = form(this.childDemoModel, (path) => {
     required(path.code, {
-      message: 'Enter a child demo code to open the right child board.',
+      message: 'Enter the child access code to open the right child board.',
     });
   });
   readonly parentFirebaseForm = form(this.parentFirebaseModel, (path) => {
     required(path.email, {
-      message: 'Enter the parent email for this Firebase account.',
+      message: 'Enter the parent email for this account.',
     });
     required(path.password, {
-      message: 'Enter the password for this Firebase account.',
+      message: 'Enter the password for this account.',
     });
     minLength(path.password, 6, {
-      message: 'Firebase passwords are usually at least 6 characters.',
+      message: 'Passwords are usually at least 6 characters.',
     });
   });
   readonly childFirebaseForm = form(this.childFirebaseModel, (path) => {
     required(path.identifier, {
-      message: 'Enter the child username or email for this Firebase account.',
+      message: 'Enter the child username or email for this account.',
     });
     required(path.password, {
-      message: 'Enter the password for this Firebase account.',
+      message: 'Enter the password for this account.',
     });
     minLength(path.password, 6, {
-      message: 'Firebase passwords are usually at least 6 characters.',
+      message: 'Passwords are usually at least 6 characters.',
     });
   });
 
@@ -90,7 +88,7 @@ export class LoginPage {
       const code = this.parentDemoForm().value().code.trim();
 
       if (!this.familyData.signInParentWithCode(code)) {
-        this.parentError.set('That parent code did not match this prototype build.');
+        this.parentError.set('That parent access code did not match this device.');
         return;
       }
 
@@ -106,7 +104,7 @@ export class LoginPage {
       const childId = this.familyData.signInChildWithCode(code);
 
       if (!childId) {
-        this.childError.set('That child code did not match this prototype build.');
+        this.childError.set('That child access code did not match this device.');
         return;
       }
 
@@ -122,7 +120,7 @@ export class LoginPage {
       const result = await this.firebaseAuth.signInWithEmailPassword(email, password);
 
       if (!result.ok) {
-        this.parentError.set(result.message ?? 'Firebase sign-in failed.');
+        this.parentError.set(result.message ?? 'Sign-in failed.');
         return;
       }
 
@@ -131,16 +129,12 @@ export class LoginPage {
       const profile = this.firebaseUserProfile.currentProfile();
 
       if (!profile) {
-        await this.handleMissingFirebaseProfile(
-          'parent',
-          this.firebaseUserProfile.lastProfileError() ||
-            'No Firestore account bootstrap record was found for this signed-in parent.',
-        );
+        await this.handleMissingFirebaseProfile('parent', 'This account signed in, but it is not set up as a parent account yet.');
         return;
       }
 
       if (profile.role !== 'parent') {
-        await this.handleMissingFirebaseProfile('parent', 'This Firebase account is not mapped to a parent lane.');
+        await this.handleMissingFirebaseProfile('parent', 'This account is not set up as a parent account.');
         return;
       }
 
@@ -160,7 +154,7 @@ export class LoginPage {
       const result = await this.firebaseChildLogin.signInWithUsernameOrEmail(identifier, password);
 
       if (!result.ok) {
-        this.childError.set(result.message ?? 'Firebase sign-in failed.');
+        this.childError.set(result.message ?? 'Sign-in failed.');
         return;
       }
 
@@ -170,29 +164,17 @@ export class LoginPage {
       const profile = this.firebaseUserProfile.currentProfile();
 
       if (!profile) {
-        await this.handleMissingFirebaseProfile(
-          'child',
-          this.firebaseUserProfile.lastProfileError() ||
-            'No Firestore account bootstrap record was found for this signed-in child.',
-        );
+        await this.handleMissingFirebaseProfile('child', 'This account signed in, but it is not set up as a child account yet.');
         return;
       }
 
       if (profile.role !== 'child' || !profile.childId) {
-        await this.handleMissingFirebaseProfile(
-          'child',
-          profile.source === 'authAccount'
-            ? 'This authAccounts child record is missing the child route target. Add childId (or the temporary prototypeChildId bridge) before trying again.'
-            : 'This Firebase account is not mapped to a child board yet.',
-        );
+        await this.handleMissingFirebaseProfile('child', 'This child account is missing setup details. Please ask a parent to finish setup.');
         return;
       }
 
       if (!this.familyData.childById(profile.childId)) {
-        await this.handleMissingFirebaseProfile(
-          'child',
-          `The Firestore child profile points at "${profile.childId}", but that child board does not exist in the prototype yet.`,
-        );
+        await this.handleMissingFirebaseProfile('child', 'This child account is linked, but the child board is not ready yet.');
         return;
       }
 

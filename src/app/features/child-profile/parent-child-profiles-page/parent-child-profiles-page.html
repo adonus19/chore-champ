@@ -29,7 +29,7 @@
         {{ savedChild.name }} can now sign in from the child lane with their new username and password.
       } @else {
         <strong>Profile {{ savedChild.action }}:</strong>
-        {{ savedChild.name }} is now updated in the {{ savedChild.source === 'firebase' ? 'Firestore household roster' : 'local family roster' }}.
+        {{ savedChild.name }} is now updated in the family roster.
       }
     </section>
   }
@@ -39,7 +39,7 @@
       <p class="eyebrow">Parent Child Manager</p>
       <h1>Shape the family roster</h1>
       <p class="hero-message">
-        Create and tune child profiles so the app feels like your real family quest board instead of fixed demo cards.
+        Create and tune child profiles so the app feels like your real family quest board.
       </p>
     </div>
 
@@ -80,7 +80,6 @@
               temporary password they can change later.
             } @else {
               Keep this simple and warm. Identity details matter because they shape every child-facing screen in the app.
-              {{ usesFirebaseChildProfiles() ? 'This signed-in parent lane now saves child profile changes to Firestore.' : 'This still updates local demo data only.' }}
             }
           </p>
         </div>
@@ -274,11 +273,7 @@
             </div>
 
             <p class="form-helper">
-              {{
-                usesFirebaseChildProfiles()
-                  ? 'This household now saves child profile changes to Firestore, and the current quest-board prototype updates right away on this device.'
-                  : 'This updates local mock family data only. Child-facing profile, goals, journal, and today screens will reflect the changes immediately.'
-              }}
+              This updates the family profile, and child-facing boards refresh here right away.
             </p>
           </div>
         </form>
@@ -298,48 +293,35 @@
             </p>
           </div>
 
-          @if (latestCreatedLink(); as latestLink) {
-            <article class="link-code-card">
-              <div class="link-code-card__top">
-                <div>
-                  <p class="eyebrow">Latest code on this device</p>
-                  <h3>{{ latestLink.childName }}</h3>
-                </div>
-                <button type="button" class="inline-button" (click)="useLatestChildLinkCode()">Use this code</button>
-              </div>
-
-              <p class="link-code-card__copy">
-                If you're testing on one device, switch to the receiving parent account and paste this code into the form below.
-              </p>
-
-              <div class="link-code-card__value">
-                <code>{{ latestLink.code }}</code>
-              </div>
-
-              <p class="link-code-card__meta">Expires {{ latestLink.expiresAtLabel }}</p>
-            </article>
-          }
-
           <form class="child-form" (submit)="onAcceptChildHouseholdLink($event); $event.preventDefault()">
             <div class="field-grid">
               <label class="field field--full">
-                <span class="field__label required-indicator">Child household link code</span>
+                <span class="field__label required-indicator">
+                  Child household link code
+                  <app-info-tooltip
+                    ariaLabel="Explain child household link codes"
+                    text="The source household parent generates this from the child's roster card. Paste the full code here to add the same child profile without making a second account."
+                  />
+                </span>
                 <input
                   [formField]="acceptLinkForm.code"
                   (input)="clearAcceptLinkError()"
                   autocomplete="off"
                   placeholder="ABCDE-FGHIJ"
                 />
-                <span class="field__hint">
-                  The source household parent creates this code from the child card on their roster.
-                </span>
                 @if (acceptLinkForm.code().touched() && acceptLinkForm.code().errors().length) {
                   <span class="field__error">{{ errorMessage(acceptLinkForm.code().errors()) }}</span>
                 }
               </label>
 
               <label class="field field--full">
-                <span class="field__label required-indicator">Switching style for this household</span>
+                <span class="field__label required-indicator">
+                  Switching style for this household
+                  <app-info-tooltip
+                    ariaLabel="Explain household switching styles"
+                    text="Parent controlled means only adults can point the child to this house. Child can switch lets the child move households from their own lane. Child can ask is reserved for a later approval flow."
+                  />
+                </span>
                 <select [formField]="acceptLinkForm.householdSwitchPolicy" (change)="clearAcceptLinkError()">
                   @for (option of childLinkPolicyOptions; track option.value) {
                     <option [value]="option.value">{{ option.label }}</option>
@@ -366,10 +348,6 @@
                 >
                   Add child to this household
                 </button>
-
-                @if (canUseLatestLinkCode()) {
-                  <button type="button" class="secondary-button" (click)="useLatestChildLinkCode()">Use latest code</button>
-                }
               </div>
 
               <p class="form-helper">
@@ -392,8 +370,8 @@
           <p class="panel-copy">
             {{
               usesFirebaseChildProfiles()
-                ? 'This signed-in parent household now reads the child roster from Firestore.'
-                : 'This keeps parent edits visible right away so we can tune the setup experience before real persistence lands.'
+                ? 'This signed-in household reads the live child roster.'
+                : 'Child updates appear here as soon as they are saved on this device.'
             }}
           </p>
         </div>
@@ -453,7 +431,7 @@
                   <p class="preview-access__copy">
                     {{
                       item.child.login?.enabled
-                        ? 'This child can sign in from the public child lane with a username or the hidden Firebase email alias.'
+                        ? 'This child can sign in from the public child lane with a username or account email.'
                         : 'Enable a child username when this profile is ready to sign in from a separate device.'
                     }}
                   </p>
@@ -586,7 +564,7 @@
                       </div>
 
                       <p class="form-helper">
-                        This is still a prototype client-side provisioning flow. Later we will move username lookup and child credential management behind a secure backend path without changing the parent experience.
+                        This creates the child sign-in for this profile and keeps the setup simple for parents.
                       </p>
                     </div>
                   </form>
@@ -599,7 +577,7 @@
               <p>
                 {{ usesFirebaseChildProfiles()
                   ? 'Create the first child profile for this new household here.'
-                  : 'The demo roster is empty right now.' }}
+                  : 'Create the first child profile for this household here.' }}
               </p>
             </article>
           }

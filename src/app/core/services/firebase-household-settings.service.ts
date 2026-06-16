@@ -72,7 +72,7 @@ export class FirebaseHouseholdSettingsService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep the household mode setting in sync.');
+        this._lastSyncError.set("We couldn't keep the household mode updated right now.");
       },
     );
   }
@@ -93,7 +93,7 @@ export class FirebaseHouseholdSettingsService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore mode switching yet.',
+        message: 'The family mode setting is not ready yet. Refresh and try again.',
       };
     }
 
@@ -175,10 +175,10 @@ function describeHouseholdSettingsError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked this mode switch. Update the household settings security rules before trying again.';
+      return 'This mode change is not allowed right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while switching modes. Check the network and try again.';
+      return "We couldn't reach the server while switching modes. Check the network and try again.";
     default:
       return 'The household mode could not be switched right now.';
   }

@@ -4,26 +4,26 @@
       <p class="eyebrow">Parent signup</p>
       <h1>Create the first family workspace</h1>
       <p class="hero-message">
-        This is the clean entry for a brand-new family. We create the parent Firebase account first, then bootstrap the
-        first household, people record, and owner membership in Firestore.
+        This is the clean entry for a brand-new family. Create the first parent account and set up the first household
+        in one step.
       </p>
 
       <div class="hero-tags" aria-label="Signup flow highlights">
         <span class="hero-tag">Public route</span>
         <span class="hero-tag hero-tag--mint">Parent-owned household</span>
-        <span class="hero-tag hero-tag--violet">{{ firebaseEnabled ? 'Firebase Auth active' : 'Firebase needed' }}</span>
+        <span class="hero-tag hero-tag--violet">{{ firebaseEnabled ? 'Secure sign-in ready' : 'Sign-in setup needed' }}</span>
       </div>
     </div>
 
     <aside class="hero-note">
-      <p class="hero-note__eyebrow">Bootstrap note</p>
+      <p class="hero-note__eyebrow">Setup note</p>
       <h2>First household setup only</h2>
       <p>
-        This chunk only handles the first parent and the first household. Co-parent invites and child account setup
-        stay on their own later chunks.
+        This page sets up the first parent and the first household. Adding another parent or adding kids happens
+        afterward.
       </p>
       @if (firebaseEnabled && !authReady()) {
-        <p class="hero-note__status">Checking Firebase session…</p>
+        <p class="hero-note__status">Checking sign-in…</p>
       }
     </aside>
   </section>
@@ -35,10 +35,7 @@
           <p class="eyebrow">Create account</p>
           <h2>Start the parent lane</h2>
         </div>
-        <p class="panel-copy">
-          This creates the parent Firebase user, the Firestore bootstrap docs, and the first household owner
-          membership.
-        </p>
+        <p class="panel-copy">This creates the first parent account and makes that person the owner of the household.</p>
       </div>
 
       <form class="signup-form" (submit)="createParentAccount($event); $event.preventDefault()">
@@ -123,21 +120,20 @@
       <div class="panel-heading">
         <div>
           <p class="eyebrow">What happens next</p>
-          <h2>Bootstrap records created</h2>
+          <h2>Your family space is ready</h2>
         </div>
-        <p class="panel-copy">This route only creates the records needed for the first parent-owned household.</p>
+        <p class="panel-copy">After this, you can sign in, add kids, and start setting up quests, goals, and rewards.</p>
       </div>
 
       <ul class="check-list">
-        <li><code>authAccounts/&lt;uid&gt;</code> for account bootstrap</li>
-        <li><code>people/&lt;personId&gt;</code> for the canonical parent identity</li>
-        <li><code>households/&lt;householdId&gt;</code> for the family workspace</li>
-        <li><code>households/&lt;householdId&gt;/members/&lt;personId&gt;</code> as the owner membership</li>
+        <li>Your parent account is created</li>
+        <li>Your household is created</li>
+        <li>You become the household owner</li>
+        <li>You can move on to family setup</li>
       </ul>
 
       <p class="status-note">
-        If Firebase Auth succeeds but Firestore bootstrap fails, this page lets the same signed-in parent retry setup
-        without creating a second account.
+        If something stops the setup, you can try again without creating a second account.
       </p>
     </article>
   </section>

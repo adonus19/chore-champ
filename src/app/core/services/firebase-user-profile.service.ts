@@ -236,8 +236,7 @@ async function readAuthAccountBootstrapProfile(
 ): Promise<AuthBootstrapLookupResult> {
   if (!data.personId || !data.accountType) {
     return {
-      message:
-        'The Firestore auth account document is missing one of the required fields: personId or accountType.',
+      message: 'This account is missing a few required setup details.',
       profile: null,
     };
   }
@@ -246,8 +245,7 @@ async function readAuthAccountBootstrapProfile(
 
   if (!householdId) {
     return {
-      message:
-        'The Firestore auth account document is missing the household context needed for app bootstrap. Add defaultHouseholdId.',
+      message: 'This account is missing its household setup.',
       profile: null,
     };
   }
@@ -256,7 +254,7 @@ async function readAuthAccountBootstrapProfile(
 
   if (!personSnapshot.exists()) {
     return {
-      message: `No Firestore person document exists at ${environment.firebase.peopleCollection}/${data.personId}.`,
+      message: 'This account profile is not set up yet.',
       profile: null,
     };
   }
@@ -265,7 +263,7 @@ async function readAuthAccountBootstrapProfile(
 
   if (personData.type && personData.type !== data.accountType) {
     return {
-      message: `The Firestore person document at ${environment.firebase.peopleCollection}/${data.personId} does not match the auth account type.`,
+      message: 'This account profile does not match the signed-in role.',
       profile: null,
     };
   }
@@ -292,9 +290,7 @@ async function readLegacyUserProfile(firestore: Firestore, uid: string): Promise
 
   if (!snapshot.exists()) {
     return {
-      message:
-        `No Firestore bootstrap document exists at ${environment.firebase.authAccountCollection}/${uid}, ` +
-        `and no legacy fallback exists at ${environment.firebase.legacyUserProfileCollection}/${uid}.`,
+      message: 'We could not find the setup record for this account.',
       profile: null,
     };
   }
@@ -310,8 +306,7 @@ async function readLegacyUserProfile(firestore: Firestore, uid: string): Promise
 
   if (!data.role || !data.familyId) {
     return {
-      message:
-        'The legacy Firestore user profile is missing one of the required fields: role or familyId.',
+      message: 'This older account record is missing required setup details.',
       profile: null,
     };
   }
@@ -351,11 +346,12 @@ function describeProfileLookupError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore denied access to the account bootstrap documents. Check your Firestore security rules.';
+      // Hidden for now: "Check your Firestore security rules."
+      return "We couldn't open this account right now.";
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached. Check the network connection and Firebase project settings.';
+      return "We couldn't reach the server while opening this account. Check the network and try again.";
     default:
-      return 'Firestore could not read the account bootstrap documents for this signed-in account.';
+      return "We couldn't load this account right now.";
   }
 }

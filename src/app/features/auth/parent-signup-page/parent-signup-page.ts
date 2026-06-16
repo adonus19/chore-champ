@@ -31,7 +31,7 @@ export class ParentSignupPage {
       return null;
     }
 
-    return `Firebase already knows ${email}. If Firestore bootstrap did not finish earlier, submitting this form again will resume setup instead of creating a second family.`;
+    return `${email} is already signed in here. Submitting this form again will continue setup instead of creating a second family.`;
   });
   readonly signupError = signal('');
   readonly signupModel = signal({
@@ -54,13 +54,13 @@ export class ParentSignupPage {
       message: 'Use at least 2 characters for the household name.',
     });
     required(path.email, {
-      message: 'Add the parent email for this Firebase account.',
+      message: 'Add the parent email for this account.',
     });
     pattern(path.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
       message: 'Enter a valid email address.',
     });
     required(path.password, {
-      message: 'Add a password for this new Firebase account.',
+      message: 'Add a password for this new account.',
     });
     minLength(path.password, 6, {
       message: 'Choose a password with at least 6 characters.',
@@ -70,7 +70,7 @@ export class ParentSignupPage {
   createParentAccount(submitEvent?: Event) {
     submitWithValidationFocus(this.signupForm, submitEvent, async () => {
       if (!this.firebaseEnabled) {
-        this.signupError.set('Firebase Auth is not configured yet. Add the Firebase keys before creating real accounts.');
+        this.signupError.set('Secure sign-in is not set up for this build yet.');
         return;
       }
 
@@ -82,7 +82,7 @@ export class ParentSignupPage {
         const createResult = await this.firebaseAuth.createUserWithEmailPassword(normalizedEmail, password);
 
         if (!createResult.ok) {
-          this.signupError.set(createResult.message ?? 'Firebase could not create the parent account.');
+          this.signupError.set(createResult.message ?? 'The parent account could not be created.');
           return;
         }
       }
@@ -94,7 +94,7 @@ export class ParentSignupPage {
       });
 
       if (!bootstrapResult.ok) {
-        this.signupError.set(bootstrapResult.message ?? 'The family workspace bootstrap could not finish.');
+        this.signupError.set(bootstrapResult.message ?? 'The family setup could not finish.');
         return;
       }
 
@@ -104,8 +104,7 @@ export class ParentSignupPage {
 
       if (!profile || profile.role !== 'parent') {
         this.signupError.set(
-          this.firebaseUserProfile.lastProfileError() ||
-            'The Firebase account exists now, but the parent lane could not be resolved from Firestore yet.',
+          'Your account was created, but the parent view is not ready yet. Please try again in a moment.',
         );
         return;
       }

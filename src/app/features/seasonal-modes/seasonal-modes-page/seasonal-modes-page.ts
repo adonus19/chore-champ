@@ -11,10 +11,11 @@ import {
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
+import { InfoTooltip } from '../../../shared/ui/info-tooltip/info-tooltip';
 
 @Component({
   selector: 'app-seasonal-modes-page',
-  imports: [FormField, RouterLink],
+  imports: [FormField, RouterLink, InfoTooltip],
   templateUrl: './seasonal-modes-page.html',
   styleUrl: './seasonal-modes-page.scss',
 })
@@ -174,10 +175,7 @@ export class SeasonalModesPage {
     this.selectedModeId.set(modeId);
     this.actionFeedback.set({
       kind: 'success',
-      text:
-        result.source === 'firebase'
-          ? `${modeName} is now live for this household and will sync to child boards.`
-          : `${modeName} is now live in the local demo flow.`,
+      text: `${modeName} is now live for this household.`,
     });
   }
 

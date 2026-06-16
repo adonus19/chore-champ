@@ -745,7 +745,7 @@ export class MockFamilyData {
     if (!this.shouldUseFirebaseHouseholdData()) {
       return {
         ok: false,
-        message: 'Household switching is only available for signed-in Firebase household accounts.',
+        message: 'Household switching is only available after account setup is complete.',
         source: 'local',
       };
     }
@@ -775,7 +775,7 @@ export class MockFamilyData {
     if (!this.shouldUseFirebaseHouseholdData()) {
       return {
         ok: false,
-        message: 'Child household switching is only available for signed-in Firebase household accounts.',
+        message: 'Child household switching is only available after account setup is complete.',
         source: 'local',
       };
     }
@@ -1982,15 +1982,15 @@ export class MockFamilyData {
     if (!profile) {
       return (
         this.firebaseUserProfile.lastProfileError() ||
-        'Firestore profile data is not ready for this signed-in account yet. Sign out and back in, then try again.'
+        'This account setup is not ready yet. Sign out and back in, then try again.'
       );
     }
 
     if (profile.source !== 'authAccount') {
-      return 'This signed-in account is still using the legacy profile shape, so household data cannot sync to the Firestore household path yet.';
+      return 'This account is still using an older setup and cannot open household data yet.';
     }
 
-    return 'This signed-in account is missing a household context, so household data cannot sync to Firestore yet.';
+    return 'This account is missing its household setup, so family data cannot load yet.';
   }
 
   private markHouseholdDataPending() {

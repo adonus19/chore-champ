@@ -74,7 +74,7 @@ export class FirebaseChildHouseholdLinksService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before creating a child household link.',
+        message: 'Child household linking is not ready for this build yet.',
       };
     }
 
@@ -371,10 +371,10 @@ function describeChildLinkCreateError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the child household link creation. Update the child-link security rules before trying again.';
+      return 'That child household link could not be created right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while creating that child link. Check the network and try again.';
+      return "We couldn't reach the server while creating that child link. Check the network and try again.";
     default:
       return 'The child household link could not be created right now.';
   }
@@ -406,10 +406,10 @@ function describeChildLinkAcceptError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the child household link acceptance. Update the child-link security rules before trying again.';
+      return 'That child could not be linked to this household right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while linking that child into this household. Check the network and try again.';
+      return "We couldn't reach the server while linking that child to this household. Check the network and try again.";
     default:
       return 'That child could not be linked into this household right now.';
   }

@@ -91,7 +91,7 @@ export class FirebaseBonusDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep bonus points in sync for this household.');
+        this._lastSyncError.set("We couldn't keep bonus points updated right now.");
       },
     );
   }
@@ -113,7 +113,7 @@ export class FirebaseBonusDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore bonus points yet.',
+        message: 'Bonus points are not ready yet. Refresh and try again.',
       };
     }
 
@@ -225,10 +225,10 @@ function describeBonusMutationError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked this bonus point award. Update the household bonus security rules before trying again.';
+      return 'That bonus point award is not allowed right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while awarding bonus points. Check the network and try again.';
+      return "We couldn't reach the server while awarding bonus points. Check the network and try again.";
     default:
       return 'The bonus points could not be awarded right now.';
   }

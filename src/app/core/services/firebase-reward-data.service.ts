@@ -93,7 +93,7 @@ export class FirebaseRewardDataService {
         this._lastSyncError.set('');
       },
       () => {
-        this._lastSyncError.set('Firestore could not keep the reward requests in sync for this household.');
+        this._lastSyncError.set("We couldn't keep reward requests updated right now.");
       },
     );
   }
@@ -113,7 +113,7 @@ export class FirebaseRewardDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore reward requests yet.',
+        message: 'Reward requests are not ready yet. Refresh and try again.',
       };
     }
 
@@ -222,7 +222,7 @@ export class FirebaseRewardDataService {
     if (!firestore || !householdId) {
       return {
         ok: false,
-        message: 'The signed-in household is not ready for Firestore reward reviews yet.',
+        message: 'Reward reviews are not ready yet. Refresh and try again.',
       };
     }
 
@@ -342,7 +342,7 @@ function describeRewardMutationError(
 
   switch (message) {
     case 'redemption-missing':
-      return 'That reward request could not be found in Firestore. Refresh the reward queue and try again.';
+      return 'That reward request could not be found. Refresh the reward queue and try again.';
     default:
       break;
   }
@@ -350,11 +350,11 @@ function describeRewardMutationError(
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return `Firestore blocked this reward ${action} action. Update the household reward security rules before trying again.`;
+      return `That reward ${action} action is not allowed right now.`;
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while syncing reward data. Check the network and try again.';
+      return "We couldn't reach the server while saving reward data. Check the network and try again.";
     default:
-      return `The Firestore reward ${action} action could not be completed right now.`;
+      return `The reward ${action} action could not be completed right now.`;
   }
 }

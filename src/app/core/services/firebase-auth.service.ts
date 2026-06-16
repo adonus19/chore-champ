@@ -71,7 +71,7 @@ export class FirebaseAuthService {
     if (!this.auth) {
       return {
         ok: false,
-        message: 'Firebase Auth is not configured yet. Add your Firebase keys to the environment files first.',
+        message: 'Secure sign-in is not set up for this build yet.',
       };
     }
 
@@ -94,7 +94,7 @@ export class FirebaseAuthService {
     if (!this.auth) {
       return {
         ok: false,
-        message: 'Firebase Auth is not configured yet. Add your Firebase keys to the environment files first.',
+        message: 'Secure sign-in is not set up for this build yet.',
       };
     }
 
@@ -117,7 +117,7 @@ export class FirebaseAuthService {
     if (!hasFirebaseConfig()) {
       return {
         ok: false,
-        message: 'Firebase Auth is not configured yet. Add your Firebase keys to the environment files first.',
+        message: 'Secure sign-in is not set up for this build yet.',
       };
     }
 
@@ -230,14 +230,14 @@ function describeFirebaseAuthError(error: unknown) {
     case 'auth/wrong-password':
       return 'That email and password combination did not match an account.';
     case 'auth/email-already-in-use':
-      return 'That email already has a Firebase account. Sign in instead, or finish setup if this account was just created.';
+      return 'That email already has an account. Sign in instead, or finish setup if this account was just created.';
     case 'auth/weak-password':
       return 'Choose a stronger password with at least 6 characters.';
     case 'auth/too-many-requests':
-      return 'Firebase temporarily slowed sign-in after too many attempts. Try again in a bit.';
+      return 'Sign-in was temporarily slowed after too many attempts. Try again in a bit.';
     case 'auth/network-request-failed':
-      return 'Firebase could not be reached. Check the network and try again.';
+      return "We couldn't reach the sign-in service. Check the network and try again.";
     default:
-      return 'Firebase sign-in could not be completed right now.';
+      return 'Sign-in could not be completed right now.';
   }
 }

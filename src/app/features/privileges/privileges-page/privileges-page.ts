@@ -12,10 +12,11 @@ import {
 } from '../../../core/models/family.models';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
+import { InfoTooltip } from '../../../shared/ui/info-tooltip/info-tooltip';
 
 @Component({
   selector: 'app-privileges-page',
-  imports: [FormField, RouterLink],
+  imports: [FormField, RouterLink, InfoTooltip],
   templateUrl: './privileges-page.html',
   styleUrl: './privileges-page.scss',
 })
@@ -156,10 +157,7 @@ export class PrivilegesPage {
 
       this.actionFeedback.set({
         kind: 'success',
-        text:
-          result.source === 'firebase'
-            ? `${draft.title} now syncs through this household's shared privilege settings.`
-            : `${draft.title} is now updated in the local demo privilege library.`,
+        text: `${draft.title} is now updated for this household.`,
       });
     });
   }

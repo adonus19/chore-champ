@@ -61,7 +61,7 @@ export class FirebaseHouseholdParentsService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before inviting another parent.',
+        message: 'Parent invitations are not ready for this build yet.',
       };
     }
 
@@ -229,11 +229,11 @@ function describeParentInviteError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the co-parent invite write. Deploy the parent-invite security rules from FIREBASE_SETUP.md before trying again.';
+      return 'We could not finish inviting that parent right now.';
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while inviting the parent. Check the network and try again.';
+      return "We couldn't reach the server while inviting that parent. Check the network and try again.";
     default:
-      return 'The co-parent account was created in Firebase Auth, but the household membership write could not finish yet.';
+      return 'The parent account was created, but the household invite could not finish yet.';
   }
 }

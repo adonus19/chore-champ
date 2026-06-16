@@ -3,7 +3,7 @@
 
   @if (lastSavedQuest(); as savedQuest) {
     <section class="success-banner" role="status" aria-live="polite">
-      <strong>Quest {{ savedQuest.action }}:</strong> {{ savedQuest.title }} is now synced into the family quest board.
+      <strong>Quest {{ savedQuest.action }}:</strong> {{ savedQuest.title }} is now on the family quest board.
     </section>
   }
 
@@ -21,7 +21,7 @@
 
   @if (actionError()) {
     <section class="error-banner" role="alert" aria-live="assertive">
-      <strong>Quest sync issue:</strong> {{ actionError() }}
+      <strong>Quest update issue:</strong> {{ actionError() }}
     </section>
   }
 
@@ -32,7 +32,7 @@
       aria-live="polite"
     >
       <strong>
-        {{ feedback.kind === 'error' ? 'Reward sync issue:' : feedback.kind === 'warning' ? 'Reward heads up:' : 'Reward updated:' }}
+        {{ feedback.kind === 'error' ? 'Reward update issue:' : feedback.kind === 'warning' ? 'Reward heads up:' : 'Reward updated:' }}
       </strong>
       {{ feedback.text }}
     </section>
@@ -83,15 +83,18 @@
         <form class="quest-form" (submit)="onSubmit($event); $event.preventDefault()">
           <div class="field-grid">
             <label class="field field--full">
-              <span class="field__label">Quick-start chore</span>
+              <span class="field__label">
+                Quick-start chore
+                <app-info-tooltip
+                  ariaLabel="Explain quick-start chores"
+                  text="Choose a preset to fill the form faster. Assignees and seasonal modes stay exactly as you set them."
+                />
+              </span>
               <select [value]="selectedQuestPresetId()" (change)="applyQuestPreset(($any($event.target).value ?? '').toString())">
                 @for (option of QUEST_PRESET_OPTIONS; track option.value) {
                   <option [value]="option.value">{{ option.label }}</option>
                 }
               </select>
-              <span class="field__hint">
-                Choose a preset to fill the form faster. Assignees and seasonal modes stay exactly as you set them.
-              </span>
             </label>
 
             <label class="field">
@@ -151,7 +154,13 @@
             </label>
 
             <label class="field field--full">
-              <span class="field__label required-indicator">Done definition</span>
+              <span class="field__label required-indicator">
+                Done definition
+                <app-info-tooltip
+                  ariaLabel="Explain done definition"
+                  text="Describe what finished looks like in plain words so a child can check their own work before marking the quest complete."
+                />
+              </span>
               <textarea [formField]="questForm.instructions" rows="3" placeholder="What does done look like when a child marks this complete?"></textarea>
               @if (questForm.instructions().touched() && questForm.instructions().errors().length) {
                 <span class="field__error">{{ errorMessage(questForm.instructions().errors()) }}</span>
@@ -188,7 +197,13 @@
           </fieldset>
 
           <fieldset class="choice-group">
-            <legend class="required-indicator">Seasonal modes</legend>
+            <legend class="required-indicator">
+              Seasonal modes
+              <app-info-tooltip
+                ariaLabel="Explain quest seasonal modes"
+                text="Choose every family rhythm where this quest should appear. If a mode is unchecked, the quest stays hidden there."
+              />
+            </legend>
             <div class="choice-grid">
               @for (mode of seasonalModes(); track modeTrackBy($index, mode)) {
                 <label class="choice-card choice-card--mode">
@@ -208,7 +223,14 @@
             <label class="toggle-card">
               <input type="checkbox" [formField]="questForm.requiresApproval" />
               <div>
-                <span class="toggle-card__title">Parent approval required</span>
+                <span class="toggle-card__title">
+                  Parent approval required
+                  <app-info-tooltip
+                    ariaLabel="Explain parent approval required"
+                    align="end"
+                    text="Turn this on when an adult should review the quest before points are awarded."
+                  />
+                </span>
                 <p>Best for chores, school checks, and life skills that need a quick look.</p>
               </div>
             </label>
@@ -217,7 +239,14 @@
               <label class="toggle-card">
                 <input type="checkbox" [formField]="questForm.requiredBeforeScreenTime" />
                 <div>
-                  <span class="toggle-card__title">Required before screen time</span>
+                  <span class="toggle-card__title">
+                    Required before screen time
+                    <app-info-tooltip
+                      ariaLabel="Explain required before screen time"
+                      align="end"
+                      text="Use this only for core expectations that should count toward opening privileges in the current mode."
+                    />
+                  </span>
                   <p>Use this for core daily expectations that unlock privileges.</p>
                 </div>
               </label>

@@ -21,12 +21,12 @@
       <p class="hero-message">{{ heroMessage() }}</p>
 
       <div class="hero-actions">
-        <a class="hero-action" routerLink="/parent/quests">Create a quest</a>
-        <a class="hero-action hero-action--secondary" routerLink="/parent/goals">Manage goals</a>
+        <a class="hero-action" routerLink="/parent/quests">Quests</a>
+        <a class="hero-action hero-action--secondary" routerLink="/parent/goals">Goals</a>
         @if (showParentSelfBoard()) {
-          <a class="hero-action hero-action--secondary" routerLink="/parent/me">Open my board</a>
+          <a class="hero-action hero-action--secondary" routerLink="/parent/me">My board</a>
         }
-        <a class="hero-action hero-action--secondary" routerLink="/parent/children">Manage kids</a>
+        <a class="hero-action hero-action--secondary" routerLink="/parent/children">Kids</a>
         <a class="hero-action hero-action--secondary" routerLink="/parent/privileges">Privilege settings</a>
       </div>
     </div>
@@ -276,7 +276,7 @@
 
         @if (journalSyncError()) {
           <div class="empty-state empty-state--warning">
-            <h3>Journal sync needs attention</h3>
+            <h3>Journal needs attention</h3>
             <p>{{ journalSyncError() }}</p>
           </div>
         } @else if (journalResponseQueue().length > 0) {

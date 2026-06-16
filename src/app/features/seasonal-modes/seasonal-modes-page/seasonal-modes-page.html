@@ -11,7 +11,7 @@
         aria-live="polite"
       >
         <strong>
-          {{ feedback.kind === 'error' ? 'Mode sync issue:' : feedback.kind === 'warning' ? 'Mode heads up:' : 'Mode updated:' }}
+          {{ feedback.kind === 'error' ? 'Mode update issue:' : feedback.kind === 'warning' ? 'Mode heads up:' : 'Mode updated:' }}
         </strong>
         {{ feedback.text }}
       </section>
@@ -61,7 +61,7 @@
 
     @if (lastSavedModeName()) {
       <section class="success-banner" aria-live="polite">
-        <strong>Mode updated:</strong> {{ lastSavedModeName() }} now uses the saved editor settings in the mock family flow.
+        <strong>Mode updated:</strong> {{ lastSavedModeName() }} now uses the saved editor settings.
       </section>
     }
 
@@ -150,13 +150,26 @@
               <label class="toggle-card">
                 <input type="checkbox" [formField]="seasonalModeForm.pauseStreaks" />
                 <div>
-                  <span class="toggle-card__title">Pause streaks in this mode</span>
+                  <span class="toggle-card__title">
+                    Pause streaks in this mode
+                    <app-info-tooltip
+                      ariaLabel="Explain pausing streaks in a mode"
+                      align="end"
+                      text="Use this for travel, illness, or softer reset seasons when missing a day should not break momentum."
+                    />
+                  </span>
                   <p>Best for sick days, vacations, and softer seasons where consistency should not feel punishing.</p>
                 </div>
               </label>
 
               <label class="field field--full">
-                <span class="field__label required-indicator">Screen-time guidance</span>
+                <span class="field__label required-indicator">
+                  Screen-time guidance
+                  <app-info-tooltip
+                    ariaLabel="Explain screen-time guidance"
+                    text="This is the plain-language rule families see about how screen time opens in this mode."
+                  />
+                </span>
                 <textarea rows="3" [formField]="seasonalModeForm.defaultScreenTimeRule"></textarea>
                 @if (
                   seasonalModeForm.defaultScreenTimeRule().touched() &&
@@ -168,7 +181,13 @@
             </div>
 
             <fieldset class="choice-group">
-              <legend class="required-indicator">Required tracks</legend>
+              <legend class="required-indicator">
+                Required tracks
+                <app-info-tooltip
+                  ariaLabel="Explain required tracks"
+                  text="These categories become the must-do lanes on child boards during this mode."
+                />
+              </legend>
               <div class="choice-grid">
                 @for (category of CATEGORY_TOGGLE_OPTIONS; track categoryTrackBy($index, category)) {
                   <label class="choice-card">
@@ -188,7 +207,13 @@
             </fieldset>
 
             <fieldset class="choice-group">
-              <legend class="required-indicator">Daily minimums</legend>
+              <legend class="required-indicator">
+                Daily minimums
+                <app-info-tooltip
+                  ariaLabel="Explain daily minimums"
+                  text="Use these for recurring expectations like reading, outside time, or practice. Each one shows up as a quick target on the board."
+                />
+              </legend>
               <div class="minimum-editor-grid">
                 @for (minimum of seasonalModeForm.dailyMinimums; track $index) {
                   <div class="minimum-editor-card">
@@ -225,7 +250,7 @@
               </div>
 
               <p class="form-helper">
-                Saving updates the selected mode in the local mock service. If this mode is already live, the family dashboard and child boards change too.
+                Saving updates this mode for the family. If it is already live, the dashboard and child boards change too.
               </p>
             </div>
           </form>

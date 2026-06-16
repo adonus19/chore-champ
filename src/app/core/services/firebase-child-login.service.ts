@@ -57,7 +57,7 @@ export class FirebaseChildLoginService {
     if (!firestore) {
       return {
         ok: false,
-        message: 'Firestore is not configured yet. Add your Firebase keys before using child username login.',
+        message: 'Child username sign-in is not ready for this build yet.',
       };
     }
 
@@ -143,10 +143,10 @@ function describeChildLoginLookupError(error: unknown) {
   switch (code) {
     case 'permission-denied':
     case 'firestore/permission-denied':
-      return 'Firestore blocked the child username lookup. Update the child-login security rules before trying again.';
+      return "We couldn't look up that child sign-in right now.";
     case 'unavailable':
     case 'firestore/unavailable':
-      return 'Firestore could not be reached while looking up that child username. Check the network and try again.';
+      return "We couldn't reach the server while looking up that child sign-in. Check the network and try again.";
     default:
       return GENERIC_CHILD_LOGIN_ERROR;
   }
