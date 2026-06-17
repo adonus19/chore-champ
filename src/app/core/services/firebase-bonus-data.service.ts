@@ -6,6 +6,7 @@ import {
   collection,
   connectFirestoreEmulator,
   doc,
+  getDocs,
   getFirestore,
   increment,
   onSnapshot,
@@ -94,6 +95,28 @@ export class FirebaseBonusDataService {
         this._lastSyncError.set("We couldn't keep bonus points updated right now.");
       },
     );
+  }
+
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<BonusMoment[]> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return [];
+    }
+
+    const bonusQuery =
+      profile.role === 'child'
+        ? query(
+            collection(firestore, HOUSEHOLDS_COLLECTION, householdId, BONUS_MOMENTS_SUBCOLLECTION),
+            where('childId', '==', profile.personId),
+          )
+        : query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, BONUS_MOMENTS_SUBCOLLECTION));
+    const snapshot = await getDocs(bonusQuery);
+
+    return snapshot.docs
+      .map((item) => mapBonusMomentDocument({ id: item.id, ...(item.data() as BonusMomentDocument) }))
+      .sort((left, right) => right.awardedAt.localeCompare(left.awardedAt));
   }
 
   stopSync() {

@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   Firestore,
@@ -67,7 +67,9 @@ export class FirebaseUserProfileService {
       const authReady = this.firebaseAuth.authReady();
       const currentUserUid = this.firebaseAuth.currentUser()?.uid ?? null;
 
-      void this.syncProfileFromAuth(authReady, currentUserUid);
+      untracked(() => {
+        void this.syncProfileFromAuth(authReady, currentUserUid);
+      });
     });
   }
 
@@ -82,7 +84,25 @@ export class FirebaseUserProfileService {
   }
 
   async refreshCurrentProfile() {
-    await this.syncProfileFromAuth(this.firebaseAuth.authReady(), this.firebaseAuth.currentUser()?.uid ?? null);
+    const firestore = this.firestore;
+    const currentUserUid = this.firebaseAuth.currentUser()?.uid ?? null;
+
+    if (!firestore || !this.firebaseAuth.authReady() || !currentUserUid) {
+      await this.syncProfileFromAuth(this.firebaseAuth.authReady(), currentUserUid);
+      return;
+    }
+
+    const loadToken = ++this.currentLoadToken;
+    this._profileReady.set(false);
+    const lookup = await readAuthBootstrapProfile(firestore, currentUserUid);
+
+    if (loadToken !== this.currentLoadToken) {
+      return;
+    }
+
+    this._currentProfile.set(lookup.profile);
+    this._lastProfileError.set(lookup.message ?? '');
+    this.markProfileReady();
   }
 
   private async syncProfileFromAuth(authReady: boolean, currentUserUid: string | null) {
@@ -159,7 +179,7 @@ export class FirebaseUserProfileService {
   }
 
   private markProfileReady() {
-    if (!this._profileReady()) {
+    if (!untracked(() => this._profileReady())) {
       this._profileReady.set(true);
     }
 

@@ -8,6 +8,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
   onSnapshot,
   query,
@@ -95,6 +96,25 @@ export class FirebaseGoalDataService {
         this._lastSyncError.set("We couldn't keep goals updated right now.");
       },
     );
+  }
+
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<Goal[]> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return [];
+    }
+
+    const goalsQuery =
+      profile.role === 'child'
+        ? query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, GOALS_SUBCOLLECTION), where('childId', '==', profile.personId))
+        : query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, GOALS_SUBCOLLECTION));
+    const snapshot = await getDocs(goalsQuery);
+
+    return snapshot.docs
+      .map((item) => mapGoalDocument({ id: item.id, ...(item.data() as GoalDocument) }))
+      .sort((left, right) => left.title.localeCompare(right.title));
   }
 
   stopSync() {

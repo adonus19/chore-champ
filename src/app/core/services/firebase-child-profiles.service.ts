@@ -578,17 +578,15 @@ export class FirebaseChildProfilesService {
     fallbackModeId: string,
     membershipData?: ChildMembershipDocument | null,
   ): Promise<ChildProfile | null> {
-    const [peopleSnapshot, profileSnapshot, stateSnapshot] = await Promise.all([
-      getDoc(doc(firestore, environment.firebase.peopleCollection, childId)),
+    const [profileSnapshot, stateSnapshot] = await Promise.all([
       getDoc(doc(firestore, environment.firebase.childProfileCollection, childId)),
       getDoc(doc(firestore, HOUSEHOLDS_COLLECTION, householdId, CHILD_STATE_SUBCOLLECTION, childId)),
     ]);
 
-    if (!peopleSnapshot.exists() || !profileSnapshot.exists()) {
+    if (!profileSnapshot.exists()) {
       return null;
     }
 
-    const peopleData = peopleSnapshot.data() as { displayName?: string; themeColor?: string | null };
     const profileData = profileSnapshot.data() as ChildProfileDocument;
     const stateData = stateSnapshot.exists() ? (stateSnapshot.data() as ChildStateDocument) : null;
     const profile = profileData.profile ?? {};
@@ -597,13 +595,10 @@ export class FirebaseChildProfilesService {
 
     return {
       id: childId,
-      name: profile.displayName?.trim() || peopleData.displayName?.trim() || childId,
+      name: profile.displayName?.trim() || childId,
       age: Math.max(1, Math.round(profile.ageYears ?? 8)),
-      avatar: (profile.avatarLabel?.trim().toUpperCase() || initialsForName(profile.displayName || peopleData.displayName || childId)).slice(
-        0,
-        3,
-      ),
-      themeColor: profile.themeColor?.trim() || peopleData.themeColor?.trim() || '#ff7b59',
+      avatar: (profile.avatarLabel?.trim().toUpperCase() || initialsForName(profile.displayName || childId)).slice(0, 3),
+      themeColor: profile.themeColor?.trim() || '#ff7b59',
       level: 1,
       points: Math.max(0, Math.round(stateData?.points ?? 0)),
       streakDays: Math.max(0, Math.round(stateData?.streakDays ?? 0)),

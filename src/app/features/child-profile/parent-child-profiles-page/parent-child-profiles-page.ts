@@ -328,8 +328,9 @@ export class ParentChildProfilesPage {
     this.pendingLinkChildId.set(childId);
     const result = await this.firebaseChildHouseholdLinks.createChildHouseholdLink(childId);
     this.pendingLinkChildId.set('');
+    const childName = this.familyData.childById(childId)?.name ?? result.childName ?? childId;
 
-    if (!result.ok || !result.code || !result.childName || !result.expiresAtLabel) {
+    if (!result.ok || !result.code || !result.expiresAtLabel) {
       this.householdSwitchFeedback.set({
         kind: 'error',
         text: result.message ?? 'That child household link code could not be created yet.',
@@ -339,7 +340,7 @@ export class ParentChildProfilesPage {
 
     const latestLink = {
       childId,
-      childName: result.childName,
+      childName,
       code: result.code,
       expiresAtLabel: result.expiresAtLabel,
     } satisfies LatestChildLink;
@@ -347,7 +348,7 @@ export class ParentChildProfilesPage {
     this.latestCreatedLink.set(latestLink);
     this.householdSwitchFeedback.set({
       kind: 'success',
-      text: `${result.childName}'s household link code is ready. Sign in to the receiving household and paste the code into the link panel below.`,
+      text: `${childName}'s household link code is ready. Sign in to the receiving household and paste the code into the link panel below.`,
     });
   }
 

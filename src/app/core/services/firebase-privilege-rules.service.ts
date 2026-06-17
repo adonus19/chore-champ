@@ -5,6 +5,7 @@ import {
   Unsubscribe,
   connectFirestoreEmulator,
   doc,
+  getDoc,
   getFirestore,
   onSnapshot,
   serverTimestamp,
@@ -100,6 +101,31 @@ export class FirebasePrivilegeRulesService {
     this.currentSyncKey = '';
     this._privilegeRules.set(null);
     this._lastSyncError.set('');
+  }
+
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<PrivilegeRule[]> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return [];
+    }
+
+    const snapshot = await getDoc(
+      doc(firestore, HOUSEHOLDS_COLLECTION, householdId, SETTINGS_SUBCOLLECTION, PRIVILEGES_SETTINGS_DOC),
+    );
+
+    if (!snapshot.exists()) {
+      return [];
+    }
+
+    const data = snapshot.data() as PrivilegeRulesSettingsDocument;
+
+    return Array.isArray(data.rules)
+      ? data.rules
+          .map((rule, index) => mapPrivilegeRuleDocument(rule, index))
+          .filter((rule): rule is PrivilegeRule => rule !== null)
+      : [];
   }
 
   async updateRule(

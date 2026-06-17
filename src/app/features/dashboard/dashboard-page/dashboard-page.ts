@@ -106,6 +106,10 @@ export class DashboardPage {
   });
   readonly currentModeChecklist = computed(() => this.familySnapshot().currentMode.dailyMinimums);
 
+  constructor() {
+    void this.familyData.ensureDashboardDataLoaded();
+  }
+
   showParentSelfBoard() {
     return this.familyData.usesParentSelfBoard();
   }

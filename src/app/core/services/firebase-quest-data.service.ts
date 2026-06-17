@@ -47,6 +47,14 @@ interface QuestCompletionDocument extends Omit<QuestCompletion, 'id'> {
 export interface QuestMutationResult {
   message?: string;
   ok: boolean;
+  quest?: Quest;
+  questId?: string;
+  source?: 'firebase' | 'local';
+}
+
+export interface QuestDataSnapshot {
+  completions: QuestCompletion[];
+  quests: Quest[];
 }
 
 @Injectable({
@@ -129,6 +137,39 @@ export class FirebaseQuestDataService {
     );
   }
 
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<QuestDataSnapshot> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return {
+        completions: [],
+        quests: [],
+      };
+    }
+
+    const completionsQuery =
+      profile.role === 'child'
+        ? query(
+            collection(firestore, HOUSEHOLDS_COLLECTION, householdId, QUEST_COMPLETIONS_SUBCOLLECTION),
+            where('childId', '==', profile.personId),
+          )
+        : query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, QUEST_COMPLETIONS_SUBCOLLECTION));
+    const [questsSnapshot, completionsSnapshot] = await Promise.all([
+      getDocs(query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, QUESTS_SUBCOLLECTION))),
+      getDocs(completionsQuery),
+    ]);
+
+    return {
+      completions: completionsSnapshot.docs
+        .map((item) => mapCompletionDocument({ id: item.id, ...(item.data() as QuestCompletionDocument) }))
+        .sort((left, right) => right.completedAt.localeCompare(left.completedAt)),
+      quests: questsSnapshot.docs
+        .map((item) => mapQuestDocument({ id: item.id, ...(item.data() as QuestDocument) }))
+        .sort((left, right) => left.title.localeCompare(right.title)),
+    };
+  }
+
   stopSync() {
     this.questsSubscription?.();
     this.completionsSubscription?.();
@@ -162,6 +203,11 @@ export class FirebaseQuestDataService {
 
     try {
       const questRef = doc(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, QUESTS_SUBCOLLECTION));
+      const quest: Quest = {
+        id: questRef.id,
+        ...normalizedDraft,
+      };
+
       await setDoc(questRef, {
         questId: questRef.id,
         ...toQuestDocumentPayload(normalizedDraft),
@@ -169,7 +215,7 @@ export class FirebaseQuestDataService {
         updatedAt: serverTimestamp(),
       });
 
-      return { ok: true };
+      return { ok: true, quest };
     } catch (error) {
       return {
         ok: false,
@@ -204,7 +250,13 @@ export class FirebaseQuestDataService {
         updatedAt: serverTimestamp(),
       });
 
-      return { ok: true };
+      return {
+        ok: true,
+        quest: {
+          id: questId,
+          ...normalizedDraft,
+        },
+      };
     } catch (error) {
       return {
         ok: false,
@@ -241,7 +293,7 @@ export class FirebaseQuestDataService {
 
       await batch.commit();
 
-      return { ok: true };
+      return { ok: true, questId };
     } catch (error) {
       return {
         ok: false,

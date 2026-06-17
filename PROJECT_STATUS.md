@@ -1,6 +1,6 @@
 # Chore Champ Progress Tracker
 
-Last updated: 2026-06-15
+Last updated: 2026-06-16
 
 ## Purpose
 
@@ -141,13 +141,14 @@ Update this file at the end of each completed implementation pass.
 
 ## Remaining Before MVP
 
-- Replace or adapt the mock family data layer so core flows persist through Firestore.
 - Validate cross-device family syncing for quests, rewards, goals, and journal entries.
 - Validate cross-device family syncing for privilege rules and screen-time settings.
 - Validate cross-device family syncing for household switching and child household redirection.
-- Finish moving the remaining family progress flows from local mock state into Firestore-backed household data.
+- Validate cross-device family syncing for active seasonal mode switching.
+- Validate parent and child account behavior across separate devices and fresh sessions.
+- Audit signed-in startup and route transitions for any remaining mock-data flashes or local-only fallback behavior.
 
-## Queue
+## Pre-MVP Validation Queue
 
 - Cross-device validation pass for reward multi-request review, reward approval/refund behavior, and the derived point ledger
 - Cross-device validation pass for Firestore-backed active seasonal mode switching
@@ -157,7 +158,9 @@ Update this file at the end of each completed implementation pass.
 - Cross-device validation pass for Firestore-backed goals
 - Cross-device validation pass for parent and child accounts
 
-## Backlog
+## Post-MVP Backlog
+
+Keep feature work after MVP in this single section so it stays separate from the MVP validation queue.
 
 - Guided tour for new users so families can learn the app through an in-product tutorial.
 - Mascot or guide-character system for onboarding, encouragement, and younger-kid support across the app.

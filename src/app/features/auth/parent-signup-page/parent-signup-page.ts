@@ -7,6 +7,7 @@ import { FirebaseAuthService } from '../../../core/services/firebase-auth.servic
 import { FirebaseUserProfileService } from '../../../core/services/firebase-user-profile.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
+import { withTimeout } from '../../../core/utils/with-timeout';
 
 @Component({
   selector: 'app-parent-signup-page',
@@ -24,14 +25,20 @@ export class ParentSignupPage {
   readonly firebaseEnabled = this.firebaseAuth.firebaseEnabled;
   readonly authReady = this.firebaseAuth.authReady;
   readonly currentFirebaseEmail = computed(() => this.firebaseAuth.currentUser()?.email?.trim().toLowerCase() ?? '');
+  readonly resumeSetupAvailable = signal(false);
   readonly accountExistsNote = computed(() => {
-    const email = this.currentFirebaseEmail();
-
-    if (!email) {
+    if (!this.resumeSetupAvailable()) {
       return null;
     }
 
-    return `${email} is already signed in here. Submitting this form again will continue setup instead of creating a second family.`;
+    const email = this.currentFirebaseEmail();
+    const formEmail = normalizeEmail(this.signupModel().email);
+
+    if (!email || !formEmail || email !== formEmail) {
+      return null;
+    }
+
+    return `${email} was already created on this device, but the family setup is not finished yet. Submit again to continue setup instead of creating a second family.`;
   });
   readonly signupError = signal('');
   readonly signupModel = signal({
@@ -74,32 +81,91 @@ export class ParentSignupPage {
         return;
       }
 
+      this.resumeSetupAvailable.set(false);
+      this.signupError.set('');
+
       const { displayName, householdName, email, password } = this.signupForm().value();
-      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedEmail = normalizeEmail(email);
       const signedInEmail = this.currentFirebaseEmail();
 
-      if (signedInEmail !== normalizedEmail) {
+      if (signedInEmail && signedInEmail !== normalizedEmail) {
+        this.resumeSetupAvailable.set(false);
+        this.signupError.set(
+          `You're already signed in as ${signedInEmail}. Finish that setup or sign out before starting a different family.`,
+        );
+        return;
+      }
+
+      if (!signedInEmail) {
         const createResult = await this.firebaseAuth.createUserWithEmailPassword(normalizedEmail, password);
 
         if (!createResult.ok) {
-          this.signupError.set(createResult.message ?? 'The parent account could not be created.');
-          return;
+          if (createResult.code === 'auth/email-already-in-use') {
+            const signInResult = await this.firebaseAuth.signInWithEmailPassword(normalizedEmail, password);
+
+            if (signInResult.ok) {
+              this.resumeSetupAvailable.set(true);
+            } else {
+              this.resumeSetupAvailable.set(false);
+              this.signupError.set(
+                signInResult.message ?? 'That email already has an account. Sign in first, then continue setup.',
+              );
+              return;
+            }
+          } else {
+            this.resumeSetupAvailable.set(false);
+            this.signupError.set(createResult.message ?? 'The parent account could not be created.');
+            return;
+          }
         }
       }
 
-      const bootstrapResult = await this.firebaseBootstrap.bootstrapCurrentParentAccount({
-        displayName,
-        householdName,
-        email: normalizedEmail,
-      });
+      if (this.currentFirebaseEmail() !== normalizedEmail) {
+        this.resumeSetupAvailable.set(false);
+        this.signupError.set('The signed-in account changed before setup could continue. Sign out, then try again.');
+        return;
+      }
+
+      let bootstrapResult: Awaited<ReturnType<FirebaseAccountBootstrapService['bootstrapCurrentParentAccount']>>;
+
+      try {
+        bootstrapResult = await withTimeout(
+          this.firebaseBootstrap.bootstrapCurrentParentAccount({
+            displayName,
+            householdName,
+            email: normalizedEmail,
+          }),
+          8000,
+          'The family setup is taking too long to finish.',
+        );
+      } catch {
+        this.resumeSetupAvailable.set(true);
+        this.signupError.set('The family setup is taking too long to finish. Try again to continue setup.');
+        return;
+      }
 
       if (!bootstrapResult.ok) {
+        this.resumeSetupAvailable.set(true);
         this.signupError.set(bootstrapResult.message ?? 'The family setup could not finish.');
         return;
       }
 
       await this.firebaseUserProfile.refreshCurrentProfile();
-      await this.firebaseUserProfile.waitForProfileReady();
+      try {
+        await withTimeout(
+          this.firebaseUserProfile.waitForProfileReady(),
+          8000,
+          'This account is taking too long to open.',
+        );
+      } catch {
+        this.resumeSetupAvailable.set(true);
+        this.signupError.set(
+          this.firebaseUserProfile.lastProfileError()
+            || 'The account was created, but opening the new family is taking too long. Try signing in again.',
+        );
+        return;
+      }
+
       const profile = this.firebaseUserProfile.currentProfile();
 
       if (!profile || profile.role !== 'parent') {
@@ -110,6 +176,7 @@ export class ParentSignupPage {
       }
 
       this.familyData.setParentViewer();
+      this.resumeSetupAvailable.set(false);
       this.signupError.set('');
       this.signupModel.set({
         displayName: '',
@@ -128,4 +195,8 @@ export class ParentSignupPage {
   errorMessage(messages: ReadonlyArray<{ message?: string }>) {
     return messages[0]?.message ?? 'Check this field and try again.';
   }
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
 }

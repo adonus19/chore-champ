@@ -76,6 +76,10 @@ export class ChildTodayPage {
     };
   });
 
+  constructor() {
+    void this.familyData.ensureJournalEntriesLoaded();
+  }
+
   async completeQuest(item: QuestBoardItem) {
     const childId = this.childId();
 

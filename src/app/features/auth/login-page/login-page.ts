@@ -7,6 +7,7 @@ import { FirebaseAuthService } from '../../../core/services/firebase-auth.servic
 import { FirebaseChildLoginService } from '../../../core/services/firebase-child-login.service';
 import { FirebaseUserProfileService } from '../../../core/services/firebase-user-profile.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
+import { withTimeout } from '../../../core/utils/with-timeout';
 
 @Component({
   selector: 'app-login-page',
@@ -125,7 +126,20 @@ export class LoginPage {
       }
 
       await this.firebaseUserProfile.refreshCurrentProfile();
-      await this.firebaseUserProfile.waitForProfileReady();
+      try {
+        await withTimeout(
+          this.firebaseUserProfile.waitForProfileReady(),
+          8000,
+          'This account is taking too long to open.',
+        );
+      } catch {
+        await this.handleMissingFirebaseProfile(
+          'parent',
+          this.firebaseUserProfile.lastProfileError() || 'This account is taking too long to open. Try signing in again.',
+        );
+        return;
+      }
+
       const profile = this.firebaseUserProfile.currentProfile();
 
       if (!profile) {
@@ -159,7 +173,20 @@ export class LoginPage {
       }
 
       await this.firebaseUserProfile.refreshCurrentProfile();
-      await this.firebaseUserProfile.waitForProfileReady();
+      try {
+        await withTimeout(
+          this.firebaseUserProfile.waitForProfileReady(),
+          8000,
+          'This account is taking too long to open.',
+        );
+      } catch {
+        await this.handleMissingFirebaseProfile(
+          'child',
+          this.firebaseUserProfile.lastProfileError() || 'This account is taking too long to open. Try signing in again.',
+        );
+        return;
+      }
+
       await this.familyData.refreshFirebaseHouseholdChildren();
       const profile = this.firebaseUserProfile.currentProfile();
 

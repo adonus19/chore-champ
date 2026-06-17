@@ -15,6 +15,7 @@ import {
 import { environment } from '../../../environments/environment';
 
 interface AuthResult {
+  code?: string;
   ok: boolean;
   message?: string;
 }
@@ -84,6 +85,7 @@ export class FirebaseAuthService {
       };
     } catch (error) {
       return {
+        code: firebaseAuthErrorCode(error),
         ok: false,
         message: describeFirebaseAuthError(error),
       };
@@ -107,6 +109,7 @@ export class FirebaseAuthService {
       };
     } catch (error) {
       return {
+        code: firebaseAuthErrorCode(error),
         ok: false,
         message: describeFirebaseAuthError(error),
       };
@@ -149,6 +152,7 @@ export class FirebaseAuthService {
     } catch (error) {
       await safeDisposeSecondaryAuth(secondaryAuth, secondaryApp);
       return {
+        code: firebaseAuthErrorCode(error),
         ok: false,
         message: describeFirebaseAuthError(error),
       };
@@ -218,7 +222,7 @@ function hasFirebaseConfig() {
 }
 
 function describeFirebaseAuthError(error: unknown) {
-  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+  const code = firebaseAuthErrorCode(error);
 
   switch (code) {
     case 'auth/invalid-email':
@@ -240,4 +244,8 @@ function describeFirebaseAuthError(error: unknown) {
     default:
       return 'Sign-in could not be completed right now.';
   }
+}
+
+function firebaseAuthErrorCode(error: unknown) {
+  return typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
 }

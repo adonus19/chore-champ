@@ -98,6 +98,28 @@ export class FirebaseRewardDataService {
     );
   }
 
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<RewardRedemption[]> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return [];
+    }
+
+    const redemptionsQuery =
+      profile.role === 'child'
+        ? query(
+            collection(firestore, HOUSEHOLDS_COLLECTION, householdId, REWARD_REDEMPTIONS_SUBCOLLECTION),
+            where('childId', '==', profile.personId),
+          )
+        : query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, REWARD_REDEMPTIONS_SUBCOLLECTION));
+    const snapshot = await getDocs(redemptionsQuery);
+
+    return snapshot.docs
+      .map((item) => mapRewardRedemptionDocument({ id: item.id, ...(item.data() as RewardRedemptionDocument) }))
+      .sort((left, right) => right.requestedAt.localeCompare(left.requestedAt));
+  }
+
   stopSync() {
     this.rewardsSubscription?.();
     this.rewardsSubscription = null;

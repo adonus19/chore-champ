@@ -95,6 +95,11 @@ export class ChildProfilePage {
     };
   });
 
+  constructor() {
+    void this.familyData.ensureJournalEntriesLoaded();
+    void this.familyData.ensureRewardRedemptionsLoaded();
+  }
+
   rewardStatusLabel(item: RewardRequestItem) {
     switch (item.redemption.status) {
       case 'fulfilled':

@@ -207,6 +207,10 @@ export class FamilyAccessPage {
     };
   });
 
+  constructor() {
+    void this.familyData.ensureDashboardDataLoaded();
+  }
+
   async switchCurrentHousehold(householdId: string) {
     const target = this.householdOptions().find((option) => option.householdId === householdId);
 

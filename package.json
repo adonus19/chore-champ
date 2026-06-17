@@ -4,6 +4,7 @@
   "scripts": {
     "env:write": "node scripts/write-environment-files.mjs",
     "ng": "ng",
+    "prestart": "node scripts/reset-angular-dev-state.mjs",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",

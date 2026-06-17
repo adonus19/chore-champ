@@ -7,6 +7,7 @@ import {
   connectFirestoreEmulator,
   doc,
   getDoc,
+  getDocs,
   getFirestore,
   onSnapshot,
   query,
@@ -96,6 +97,28 @@ export class FirebaseJournalDataService {
         this._lastSyncError.set("We couldn't keep journal entries updated right now.");
       },
     );
+  }
+
+  async loadSnapshot(profile: AuthBootstrapProfile): Promise<JournalEntry[]> {
+    const firestore = this.firestore;
+    const householdId = profile.householdId ?? '';
+
+    if (!firestore || !householdId || profile.source !== 'authAccount') {
+      return [];
+    }
+
+    const entriesQuery =
+      profile.role === 'child'
+        ? query(
+            collection(firestore, HOUSEHOLDS_COLLECTION, householdId, JOURNAL_ENTRIES_SUBCOLLECTION),
+            where('childId', '==', profile.personId),
+          )
+        : query(collection(firestore, HOUSEHOLDS_COLLECTION, householdId, JOURNAL_ENTRIES_SUBCOLLECTION));
+    const snapshot = await getDocs(entriesQuery);
+
+    return snapshot.docs
+      .map((item) => mapJournalEntryDocument({ id: item.id, ...(item.data() as JournalEntryDocument) }))
+      .sort((left, right) => right.date.localeCompare(left.date));
   }
 
   stopSync() {

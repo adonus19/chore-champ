@@ -56,6 +56,10 @@ export class RewardsPage {
     };
   });
 
+  constructor() {
+    void this.familyData.ensureRewardRedemptionsLoaded();
+  }
+
   async redeemReward(reward: Reward) {
     const childId = this.childId();
 

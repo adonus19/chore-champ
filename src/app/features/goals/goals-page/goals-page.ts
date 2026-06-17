@@ -69,6 +69,10 @@ export class GoalsPage {
     };
   });
 
+  constructor() {
+    void this.familyData.ensureJournalEntriesLoaded();
+  }
+
   categoryLabel(category: QuestCategory) {
     return CATEGORY_LABELS[category];
   }

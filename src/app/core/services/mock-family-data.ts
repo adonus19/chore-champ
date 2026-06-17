@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, type WritableSignal, computed, effect, inject, signal, untracked } from '@angular/core';
 
 import {
   ApprovalItem,
@@ -50,8 +50,14 @@ import {
 import { FirebaseQuestDataService, QuestMutationResult } from './firebase-quest-data.service';
 import { FirebaseRewardDataService, RewardMutationResult } from './firebase-reward-data.service';
 import { FirebaseUserProfileService } from './firebase-user-profile.service';
+import {
+  HouseholdDataCache,
+  HouseholdDataCachePatch,
+  HouseholdDataCacheService,
+} from './household-data-cache.service';
 
 type ChildRouteSection = 'today' | 'profile' | 'rewards' | 'goals' | 'journal';
+type OptionalHouseholdDataKind = 'bonusMoments' | 'journalEntries' | 'rewardRedemptions';
 const VIEWER_SESSION_STORAGE_KEY = 'chore-champ.viewer-session';
 const DEMO_PARENT_ACCESS_CODE = 'parent-demo';
 const DEFAULT_ACTIVE_MODE_ID = 'school-year';
@@ -72,9 +78,18 @@ export class MockFamilyData {
   private readonly firebaseQuestData = inject(FirebaseQuestDataService);
   private readonly firebaseRewardData = inject(FirebaseRewardDataService);
   private readonly firebaseUserProfile = inject(FirebaseUserProfileService);
+  private readonly householdDataCache = inject(HouseholdDataCacheService);
   private readonly startsWithFirebaseShell = this.firebaseAuth.firebaseEnabled;
   private firebaseHouseholdSyncToken = 0;
   private readonly householdReadyWaiters = new Set<() => void>();
+  private firebaseChildrenRefreshInFlight: Promise<void> | null = null;
+  private firebaseChildrenRefreshQueued = false;
+  private currentFirebaseHouseholdKey = '';
+  private readonly optionalHouseholdDataLoadedKeys = new Map<OptionalHouseholdDataKind, string>();
+  private readonly optionalHouseholdDataLoadInFlight = new Map<OptionalHouseholdDataKind, Promise<void>>();
+  private lastProcessedRemoteActiveModeId: string | null | undefined = undefined;
+  private lastProcessedRemoteBonusMoments: BonusMoment[] | null | undefined = undefined;
+  private lastProcessedRemoteCompletions: QuestCompletion[] | null | undefined = undefined;
 
   readonly familyName = 'Chore Champ';
   readonly demoParentAccessCode = DEMO_PARENT_ACCESS_CODE;
@@ -165,35 +180,50 @@ export class MockFamilyData {
     });
 
     effect(() => {
-      if (this.firebaseAuth.firebaseEnabled && this.firebaseAuth.authReady() && !this.firebaseAuth.isAuthenticated()) {
-        this.restoreDefaultActiveMode();
-        this.restoreSeedChildren();
-        this.restoreSeedBonusData();
-        this.restoreSeedGoalData();
-        this.restoreSeedJournalData();
-        this.restoreSeedPrivilegeData();
-        this.restoreSeedQuestData();
-        this.restoreSeedRewardData();
-        this.firebaseBonusData.stopSync();
-        this.firebaseGoalData.stopSync();
-        this.firebaseHouseholdAccess.stopSync();
-        this.firebaseHouseholdSettings.stopSync();
-        this.firebaseJournalData.stopSync();
-        this.firebasePrivilegeRules.stopSync();
-        this.firebaseQuestData.stopSync();
-        this.firebaseRewardData.stopSync();
-        this._viewerSession.set({
-          kind: 'shared',
+      const authReady = this.firebaseAuth.authReady();
+      const isAuthenticated = this.firebaseAuth.isAuthenticated();
+
+      if (this.firebaseAuth.firebaseEnabled && authReady && !isAuthenticated) {
+        untracked(() => {
+          this.resetFirebaseRefreshMarkers();
+          this.restoreDefaultActiveMode();
+          this.restoreSeedChildren();
+          this.restoreSeedBonusData();
+          this.restoreSeedGoalData();
+          this.restoreSeedJournalData();
+          this.restoreSeedPrivilegeData();
+          this.restoreSeedQuestData();
+          this.restoreSeedRewardData();
+          this.firebaseBonusData.stopSync();
+          this.firebaseGoalData.stopSync();
+          this.firebaseHouseholdAccess.stopSync();
+          this.firebaseHouseholdSettings.stopSync();
+          this.firebaseJournalData.stopSync();
+          this.firebasePrivilegeRules.stopSync();
+          this.firebaseQuestData.stopSync();
+          this.firebaseRewardData.stopSync();
+          this._viewerSession.set({
+            kind: 'shared',
+          });
         });
       }
     });
 
     effect(() => {
-      void this.syncFirebaseHouseholdState();
+      const authReady = this.firebaseAuth.authReady();
+      const isAuthenticated = this.firebaseAuth.isAuthenticated();
+      const profileReady = this.firebaseUserProfile.profileReady();
+      const profile = profileReady ? this.firebaseUserProfile.currentProfile() : null;
+
+      untracked(() => {
+        void this.syncFirebaseHouseholdState(authReady, isAuthenticated, profileReady, profile);
+      });
     });
 
     effect(() => {
-      if (!this.firebaseAuth.firebaseEnabled || !this.firebaseAuth.authReady()) {
+      const authReady = this.firebaseAuth.authReady();
+
+      if (!this.firebaseAuth.firebaseEnabled || !authReady) {
         return;
       }
 
@@ -207,52 +237,76 @@ export class MockFamilyData {
       const remoteCompletions = this.firebaseQuestData.completions();
       const remoteRewardRedemptions = this.firebaseRewardData.rewardRedemptions();
 
-      if (profile?.source === 'authAccount' && profile.householdId) {
-        if (remoteActiveModeId && this.modeById(remoteActiveModeId) && this.activeModeId() !== remoteActiveModeId) {
-          this.applyActiveMode(remoteActiveModeId);
-          void this.refreshFirebaseHouseholdChildren();
+      untracked(() => {
+        if (profile?.source === 'authAccount' && profile.householdId) {
+          if (remoteActiveModeId !== this.lastProcessedRemoteActiveModeId) {
+            this.lastProcessedRemoteActiveModeId = remoteActiveModeId;
+
+            if (remoteActiveModeId && this.modeById(remoteActiveModeId) && this.activeModeId() !== remoteActiveModeId) {
+              this.applyActiveMode(remoteActiveModeId);
+            }
+          }
+
+          if (!sameCachedValue(remoteBonusMoments, this.lastProcessedRemoteBonusMoments)) {
+            const previousBonusMoments = this.lastProcessedRemoteBonusMoments;
+            const hasProcessedBonusSnapshot = this.lastProcessedRemoteBonusMoments !== undefined;
+            this.lastProcessedRemoteBonusMoments = remoteBonusMoments;
+
+            if (remoteBonusMoments) {
+              this.replaceBonusMoments(remoteBonusMoments);
+
+              if (hasProcessedBonusSnapshot && previousBonusMoments) {
+                this.applyBonusMomentPointDelta(previousBonusMoments, remoteBonusMoments);
+              }
+            }
+          }
+
+          if (remoteGoals) {
+            this.replaceGoals(remoteGoals);
+          }
+
+          if (remoteJournalEntries) {
+            this.replaceJournalEntries(remoteJournalEntries);
+          }
+
+          if (remotePrivilegeRules) {
+            this.replacePrivilegeRules(remotePrivilegeRules);
+          }
+
+          if (remoteQuests) {
+            this.replaceQuests(remoteQuests);
+          }
+
+          if (!sameCachedValue(remoteCompletions, this.lastProcessedRemoteCompletions)) {
+            const previousCompletions = this.lastProcessedRemoteCompletions;
+            const hasProcessedCompletionSnapshot = this.lastProcessedRemoteCompletions !== undefined;
+            this.lastProcessedRemoteCompletions = remoteCompletions;
+
+            if (remoteCompletions) {
+              this.replaceCompletions(remoteCompletions);
+
+              if (hasProcessedCompletionSnapshot && previousCompletions) {
+                this.applyCompletionPointDelta(previousCompletions, remoteCompletions);
+              }
+            }
+          }
+
+          if (remoteRewardRedemptions) {
+            this.replaceRewardRedemptions(remoteRewardRedemptions);
+          }
+
+          return;
         }
 
-        if (remoteBonusMoments) {
-          this._bonusMoments.set(remoteBonusMoments);
-          void this.refreshFirebaseHouseholdChildren();
-        }
-
-        if (remoteGoals) {
-          this._goals.set(remoteGoals);
-        }
-
-        if (remoteJournalEntries) {
-          this._journalEntries.set(remoteJournalEntries);
-        }
-
-        if (remotePrivilegeRules) {
-          this.replacePrivilegeRules(remotePrivilegeRules);
-        }
-
-        if (remoteQuests) {
-          this._quests.set(remoteQuests);
-        }
-
-        if (remoteCompletions) {
-          this._completions.set(remoteCompletions);
-          void this.refreshFirebaseHouseholdChildren();
-        }
-
-        if (remoteRewardRedemptions) {
-          this.replaceRewardRedemptions(remoteRewardRedemptions);
-        }
-
-        return;
-      }
-
-      this.restoreDefaultActiveMode();
-      this.restoreSeedBonusData();
-      this.restoreSeedGoalData();
-      this.restoreSeedJournalData();
-      this.restoreSeedPrivilegeData();
-      this.restoreSeedQuestData();
-      this.restoreSeedRewardData();
+        this.resetFirebaseRefreshMarkers();
+        this.restoreDefaultActiveMode();
+        this.restoreSeedBonusData();
+        this.restoreSeedGoalData();
+        this.restoreSeedJournalData();
+        this.restoreSeedPrivilegeData();
+        this.restoreSeedQuestData();
+        this.restoreSeedRewardData();
+      });
     });
   }
 
@@ -264,6 +318,72 @@ export class MockFamilyData {
     await new Promise<void>((resolve) => {
       this.householdReadyWaiters.add(resolve);
     });
+  }
+
+  async ensureDashboardDataLoaded() {
+    await Promise.all([
+      this.ensureBonusMomentsLoaded(),
+      this.ensureJournalEntriesLoaded(),
+      this.ensureRewardRedemptionsLoaded(),
+    ]);
+  }
+
+  async ensureBonusMomentsLoaded() {
+    await this.ensureHouseholdDataSegmentLoaded('bonusMoments');
+  }
+
+  async ensureJournalEntriesLoaded() {
+    await this.ensureHouseholdDataSegmentLoaded('journalEntries');
+  }
+
+  async ensureRewardRedemptionsLoaded() {
+    await this.ensureHouseholdDataSegmentLoaded('rewardRedemptions');
+  }
+
+  private async ensureHouseholdDataSegmentLoaded(kind: OptionalHouseholdDataKind) {
+    if (!this.firebaseAuth.firebaseEnabled) {
+      return;
+    }
+
+    await this.waitForHouseholdDataReady();
+
+    const profile = this.firebaseUserProfile.currentProfile();
+
+    if (profile?.source !== 'authAccount' || !profile.householdId) {
+      return;
+    }
+
+    const householdKey = this.firebaseHouseholdKey(profile);
+
+    if (this.optionalHouseholdDataLoadedKeys.get(kind) === householdKey) {
+      return;
+    }
+
+    const inFlight = this.optionalHouseholdDataLoadInFlight.get(kind);
+
+    if (inFlight) {
+      await inFlight;
+      return;
+    }
+
+    const cachedData = this.householdDataCache.read(profile);
+
+    if (cachedData && kind in cachedData) {
+      this.optionalHouseholdDataLoadedKeys.set(kind, householdKey);
+      return;
+    }
+
+    const loadPromise = this.loadHouseholdDataSegmentSnapshot(profile, householdKey, kind);
+    this.optionalHouseholdDataLoadInFlight.set(kind, loadPromise);
+
+    try {
+      await loadPromise;
+      this.optionalHouseholdDataLoadedKeys.set(kind, householdKey);
+    } finally {
+      if (this.optionalHouseholdDataLoadInFlight.get(kind) === loadPromise) {
+        this.optionalHouseholdDataLoadInFlight.delete(kind);
+      }
+    }
   }
 
   readonly activeMode = computed(
@@ -843,33 +963,138 @@ export class MockFamilyData {
 
   replaceChildren(children: ChildProfile[]) {
     const activeModeId = this.activeModeId();
-    this._baseChildren.set(children.map((child) => ({ ...child, activeModeId })));
+    const nextChildren = children.map((child) => ({ ...child, activeModeId }));
+
+    setSignalIfChanged(this._baseChildren, nextChildren);
+    this.cacheCurrentHouseholdData({ children: nextChildren });
   }
 
   upsertChildProfile(child: ChildProfile) {
-    this._baseChildren.update((children) => {
-      const existingIndex = children.findIndex((item) => item.id === child.id);
-
-      if (existingIndex === -1) {
-        return [child, ...children].sort((left, right) => left.name.localeCompare(right.name));
-      }
-
-      return children
-        .map((item) => (item.id === child.id ? child : item))
-        .sort((left, right) => left.name.localeCompare(right.name));
-    });
+    this.replaceChildren(
+      [
+        child,
+        ...untracked(() => this._baseChildren()).filter((item) => item.id !== child.id),
+      ].sort((left, right) => left.name.localeCompare(right.name)),
+    );
   }
 
   async refreshFirebaseHouseholdChildren() {
+    if (this.firebaseChildrenRefreshInFlight) {
+      this.firebaseChildrenRefreshQueued = true;
+      return this.firebaseChildrenRefreshInFlight;
+    }
+
+    this.firebaseChildrenRefreshInFlight = this.performFirebaseHouseholdChildrenRefresh();
+
+    try {
+      await this.firebaseChildrenRefreshInFlight;
+    } finally {
+      this.firebaseChildrenRefreshInFlight = null;
+
+      if (this.firebaseChildrenRefreshQueued) {
+        this.firebaseChildrenRefreshQueued = false;
+        queueMicrotask(() => {
+          void this.refreshFirebaseHouseholdChildren();
+        });
+      }
+    }
+  }
+
+  private async performFirebaseHouseholdChildrenRefresh() {
     const profile = this.firebaseUserProfile.currentProfile();
 
     if (!this.firebaseAuth.firebaseEnabled || !profile?.householdId || profile.source !== 'authAccount') {
       return;
     }
 
+    const refreshKey = `${profile.uid}:${profile.householdId}:${profile.role}`;
     const fallbackModeId = untracked(() => this.activeModeId());
     const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, fallbackModeId);
+    const currentProfile = this.firebaseUserProfile.currentProfile();
+    const currentRefreshKey =
+      currentProfile?.source === 'authAccount' && currentProfile.householdId
+        ? `${currentProfile.uid}:${currentProfile.householdId}:${currentProfile.role}`
+        : '';
+
+    if (refreshKey !== currentRefreshKey) {
+      return;
+    }
+
     this.replaceChildren(children);
+  }
+
+  private async loadQuestDataSnapshot(profile: AuthBootstrapProfile, loadToken: number) {
+    const snapshot = await this.firebaseQuestData.loadSnapshot(profile);
+
+    if (loadToken !== this.firebaseHouseholdSyncToken || !this.isCurrentFirebaseHousehold(profile)) {
+      return;
+    }
+
+    this.replaceQuests(snapshot.quests);
+    this.replaceCompletions(snapshot.completions);
+    this.lastProcessedRemoteCompletions = snapshot.completions;
+  }
+
+  private async loadGoalDataSnapshot(profile: AuthBootstrapProfile, loadToken: number) {
+    const goals = await this.firebaseGoalData.loadSnapshot(profile);
+
+    if (loadToken !== this.firebaseHouseholdSyncToken || !this.isCurrentFirebaseHousehold(profile)) {
+      return;
+    }
+
+    this.replaceGoals(goals);
+  }
+
+  private async loadPrivilegeRulesSnapshot(profile: AuthBootstrapProfile, loadToken: number) {
+    const rules = await this.firebasePrivilegeRules.loadSnapshot(profile);
+
+    if (loadToken !== this.firebaseHouseholdSyncToken || !this.isCurrentFirebaseHousehold(profile)) {
+      return;
+    }
+
+    this.replacePrivilegeRules(rules);
+  }
+
+  private async loadHouseholdDataSegmentSnapshot(
+    profile: AuthBootstrapProfile,
+    householdKey: string,
+    kind: OptionalHouseholdDataKind,
+  ) {
+    switch (kind) {
+      case 'bonusMoments': {
+        const bonusMoments = await this.firebaseBonusData.loadSnapshot(profile);
+
+        if (householdKey !== this.currentFirebaseHouseholdKey || !this.isCurrentFirebaseHousehold(profile)) {
+          return;
+        }
+
+        this.replaceBonusMoments(bonusMoments);
+        this.lastProcessedRemoteBonusMoments = bonusMoments;
+        return;
+      }
+
+      case 'journalEntries': {
+        const journalEntries = await this.firebaseJournalData.loadSnapshot(profile);
+
+        if (householdKey !== this.currentFirebaseHouseholdKey || !this.isCurrentFirebaseHousehold(profile)) {
+          return;
+        }
+
+        this.replaceJournalEntries(journalEntries);
+        return;
+      }
+
+      case 'rewardRedemptions': {
+        const rewardRedemptions = await this.firebaseRewardData.loadSnapshot(profile);
+
+        if (householdKey !== this.currentFirebaseHouseholdKey || !this.isCurrentFirebaseHousehold(profile)) {
+          return;
+        }
+
+        this.replaceRewardRedemptions(rewardRedemptions);
+        return;
+      }
+    }
   }
 
   addChildProfile(draft: ChildProfileDraft) {
@@ -885,7 +1110,7 @@ export class MockFamilyData {
       ...normalizedDraft,
     };
 
-    this._baseChildren.update((children) => [child, ...children]);
+    this.upsertChildProfile(child);
   }
 
   updateChildProfile(childId: string, draft: ChildProfileDraft) {
@@ -896,16 +1121,10 @@ export class MockFamilyData {
       return;
     }
 
-    this._baseChildren.update((children) =>
-      children.map((child) =>
-        child.id === childId
-          ? {
-              ...child,
-              ...normalizedDraft,
-            }
-          : child,
-      ),
-    );
+    this.upsertChildProfile({
+      ...existing,
+      ...normalizedDraft,
+    });
   }
 
   updateSeasonalMode(modeId: string, draft: SeasonalModeDraft) {
@@ -968,16 +1187,7 @@ export class MockFamilyData {
         : rule,
     );
 
-    this._privilegeRules.update((rules) =>
-      rules.map((rule) =>
-        rule.id === ruleId
-          ? {
-              ...rule,
-              ...normalizedDraft,
-            }
-          : rule,
-      ),
-    );
+    this.replacePrivilegeRules(updatedRules);
 
     return {
       ok: true,
@@ -989,46 +1199,16 @@ export class MockFamilyData {
 
   async completeQuest(questId: string, childId: string): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.completeQuest(questId, childId);
-    }
+      const result = await this.firebaseQuestData.completeQuest(questId, childId);
 
-    const quest = this.questById(questId);
-
-    if (!quest) {
-      return { ok: false, message: 'That quest could not be found.' };
-    }
-
-    const existing = this.findCompletion(questId, childId);
-
-    if (existing && (existing.status === 'approved' || existing.status === 'autoApproved' || existing.status === 'pending')) {
-      return { ok: true };
-    }
-
-    const now = new Date().toISOString();
-    const status = quest.requiresApproval ? 'pending' : 'autoApproved';
-    const nextCompletion: QuestCompletion = {
-      id: existing?.id ?? createId('completion'),
-      questId,
-      childId,
-      completedAt: now,
-      status,
-      approvedBy: quest.requiresApproval ? undefined : 'Auto-approved',
-      notes: quest.requiresApproval ? 'Waiting for parent approval.' : 'Auto-approved by quest settings.',
-    };
-
-    this._completions.update((completions) => {
-      if (!existing) {
-        return [...completions, nextCompletion];
+      if (result.ok) {
+        this.recordQuestCompletionLocally(questId, childId);
       }
 
-      return completions.map((completion) => (completion.id === existing.id ? nextCompletion : completion));
-    });
-
-    if (status === 'autoApproved') {
-      this.adjustChildPoints(childId, quest.points);
+      return result;
     }
 
-    return { ok: true };
+    return this.recordQuestCompletionLocally(questId, childId);
   }
 
   // Self-certified done/undone for a parent's own personal quest. Firebase-backed only — there is no local
@@ -1040,125 +1220,66 @@ export class MockFamilyData {
       return { ok: false, message: 'Sign in with a real parent account to track personal quests.' };
     }
 
-    return this.firebaseQuestData.setParentQuestCompletion(questId, personId, done);
+    const result = await this.firebaseQuestData.setParentQuestCompletion(questId, personId, done);
+
+    if (result.ok) {
+      this.setParentQuestCompletionLocally(questId, personId, done);
+    }
+
+    return result;
   }
 
   async approveCompletion(completionId: string): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.approveCompletion(completionId);
+      const result = await this.firebaseQuestData.approveCompletion(completionId);
+
+      if (result.ok) {
+        this.approveCompletionLocally(completionId);
+      }
+
+      return result;
     }
 
-    const completion = this.completions().find((item) => item.id === completionId);
-    const quest = completion ? this.questById(completion.questId) : null;
-
-    if (!completion || !quest || completion.status !== 'pending') {
-      return { ok: false, message: 'That approval item is no longer waiting.' };
-    }
-
-    this._completions.update((completions) =>
-      completions.map((item) =>
-        item.id === completionId
-          ? {
-              ...item,
-              status: 'approved',
-              approvedBy: 'Parent',
-              notes: 'Nice work. Approved by a parent.',
-            }
-          : item,
-      ),
-    );
-
-    this.adjustChildPoints(completion.childId, quest.points);
-    return { ok: true };
+    return this.approveCompletionLocally(completionId);
   }
 
   async rejectCompletion(completionId: string): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.rejectCompletion(completionId);
+      const result = await this.firebaseQuestData.rejectCompletion(completionId);
+
+      if (result.ok) {
+        this.rejectCompletionLocally(completionId);
+      }
+
+      return result;
     }
 
-    this._completions.update((completions) =>
-      completions.map((completion) =>
-        completion.id === completionId
-          ? {
-              ...completion,
-              status: 'rejected',
-              notes: 'Almost there. Clean it up once more and resubmit.',
-            }
-          : completion,
-      ),
-    );
-
-    return { ok: true };
+    return this.rejectCompletionLocally(completionId);
   }
 
   async overrideQuestStatus(questId: string, childId: string, status: QuestBoardStatus): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.overrideQuestStatus(questId, childId, status);
-    }
+      const result = await this.firebaseQuestData.overrideQuestStatus(questId, childId, status);
 
-    const quest = this.questById(questId);
-    const child = this.childById(childId);
-    const existing = this.findCompletion(questId, childId);
-
-    if (!quest || !child) {
-      return { ok: false, message: 'That child quest could not be found.' };
-    }
-
-    const previousAwardedPoints =
-      existing && (existing.status === 'approved' || existing.status === 'autoApproved') ? quest.points : 0;
-
-    if (status === 'open') {
-      if (!existing) {
-        return { ok: false, message: 'There is nothing to clear for this quest yet.' };
+      if (result.ok) {
+        this.overrideQuestStatusLocally(questId, childId, status);
       }
 
-      this._completions.update((completions) => completions.filter((completion) => completion.id !== existing.id));
-
-      if (previousAwardedPoints > 0) {
-        this.adjustChildPoints(childId, -previousAwardedPoints);
-      }
-
-      return { ok: true };
+      return result;
     }
 
-    const nextStatus: QuestCompletion['status'] = status === 'approved' ? 'approved' : status === 'pending' ? 'pending' : 'rejected';
-    const nextAwardedPoints = status === 'approved' ? quest.points : 0;
-    const pointsDelta = nextAwardedPoints - previousAwardedPoints;
-    const now = new Date().toISOString();
-    const nextCompletion: QuestCompletion = {
-      id: existing?.id ?? createId('completion'),
-      questId,
-      childId,
-      completedAt: now,
-      status: nextStatus,
-      approvedBy: status === 'approved' ? 'Parent override' : undefined,
-      notes:
-        status === 'approved'
-          ? 'Approved directly by a parent override.'
-          : status === 'pending'
-            ? 'Placed back into parent review by override.'
-            : 'Marked for another pass by a parent override.',
-    };
-
-    this._completions.update((completions) => {
-      if (!existing) {
-        return [...completions, nextCompletion];
-      }
-
-      return completions.map((completion) => (completion.id === existing.id ? nextCompletion : completion));
-    });
-
-    if (pointsDelta !== 0) {
-      this.adjustChildPoints(childId, pointsDelta);
-    }
-
-    return { ok: true };
+    return this.overrideQuestStatusLocally(questId, childId, status);
   }
 
   async addQuest(draft: QuestDraft): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.addQuest(draft);
+      const result = await this.firebaseQuestData.addQuest(draft);
+
+      if (result.ok && result.quest) {
+        this.upsertQuest(result.quest);
+      }
+
+      return result;
     }
 
     const normalizedDraft = normalizeQuestDraft(draft);
@@ -1172,13 +1293,19 @@ export class MockFamilyData {
       ...normalizedDraft,
     };
 
-    this._quests.update((quests) => [quest, ...quests]);
+    this.upsertQuest(quest);
     return { ok: true };
   }
 
   async updateQuest(questId: string, draft: QuestDraft): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.updateQuest(questId, draft);
+      const result = await this.firebaseQuestData.updateQuest(questId, draft);
+
+      if (result.ok && result.quest) {
+        this.upsertQuest(result.quest);
+      }
+
+      return result;
     }
 
     const existing = this.questById(questId);
@@ -1188,27 +1315,26 @@ export class MockFamilyData {
       return { ok: false, message: 'This quest could not be saved.' };
     }
 
-    this._quests.update((quests) =>
-      quests.map((quest) =>
-        quest.id === questId
-          ? {
-              ...quest,
-              ...normalizedDraft,
-            }
-          : quest,
-      ),
-    );
+    this.upsertQuest({
+      ...existing,
+      ...normalizedDraft,
+    });
 
     return { ok: true };
   }
 
   async deleteQuest(questId: string): Promise<QuestMutationResult> {
     if (this.shouldUseFirebaseHouseholdData()) {
-      return this.firebaseQuestData.deleteQuest(questId);
+      const result = await this.firebaseQuestData.deleteQuest(questId);
+
+      if (result.ok) {
+        this.removeQuest(questId);
+      }
+
+      return result;
     }
 
-    this._quests.update((quests) => quests.filter((quest) => quest.id !== questId));
-    this._completions.update((completions) => completions.filter((completion) => completion.questId !== questId));
+    this.removeQuest(questId);
     return { ok: true };
   }
 
@@ -1328,25 +1454,21 @@ export class MockFamilyData {
 
         if (result.bonusMoment) {
           this.upsertBonusMoment(result.bonusMoment);
+          this.lastProcessedRemoteBonusMoments = untracked(() => this.bonusMoments());
         }
-
-        void this.refreshFirebaseHouseholdChildren();
       }
 
       return result;
     }
 
     this.adjustChildPoints(childId, points);
-    this._bonusMoments.update((moments) => [
-      {
-        id: createId('bonus'),
-        childId,
-        points,
-        awardedAt: new Date().toISOString(),
-        note,
-      },
-      ...moments,
-    ]);
+    this.upsertBonusMoment({
+      id: createId('bonus'),
+      childId,
+      points,
+      awardedAt: new Date().toISOString(),
+      note,
+    });
     return { ok: true };
   }
 
@@ -1377,16 +1499,21 @@ export class MockFamilyData {
       return result;
     }
 
-    this._goals.update((goals) =>
-      goals.map((goal) =>
-        goal.id === goalId
-          ? {
-              ...goal,
-              current: Math.min(goal.current + amount, goal.target),
-            }
-          : goal,
-      ),
-    );
+    const existing = this.goalById(goalId);
+
+    if (!existing) {
+      return {
+        ok: false,
+        message: 'That goal no longer exists.',
+      };
+    }
+
+    const goal = {
+      ...existing,
+      current: Math.min(existing.current + amount, existing.target),
+    };
+
+    this.upsertGoal(goal);
     return { ok: true, source: 'local' };
   }
 
@@ -1424,10 +1551,7 @@ export class MockFamilyData {
       ...normalizedDraft,
     };
 
-    this._goals.update((goals) => [
-      goal,
-      ...goals,
-    ]);
+    this.upsertGoal(goal);
     return { ok: true, goal, source: 'local' };
   }
 
@@ -1461,16 +1585,10 @@ export class MockFamilyData {
       };
     }
 
-    this._goals.update((goals) =>
-      goals.map((goal) =>
-        goal.id === goalId
-          ? {
-              ...goal,
-              ...normalizedDraft,
-            }
-          : goal,
-      ),
-    );
+    this.upsertGoal({
+      ...existing,
+      ...normalizedDraft,
+    });
     return {
       ok: true,
       goal: {
@@ -1508,7 +1626,7 @@ export class MockFamilyData {
       };
     }
 
-    this._goals.update((goals) => goals.filter((goal) => goal.id !== goalId));
+    this.removeGoal(goalId);
     return { ok: true, goalId, source: 'local' };
   }
 
@@ -1626,16 +1744,40 @@ export class MockFamilyData {
   }
 
   private adjustChildPoints(childId: string, points: number) {
-    this._baseChildren.update((children) =>
-      children.map((child) =>
-        child.id === childId
-          ? {
-              ...child,
-              points: child.points + points,
-            }
-          : child,
-      ),
+    if (points === 0) {
+      return;
+    }
+
+    const nextChildren = untracked(() => this._baseChildren()).map((child) =>
+      child.id === childId
+        ? {
+            ...child,
+            points: child.points + points,
+          }
+        : child,
     );
+
+    setSignalIfChanged(this._baseChildren, nextChildren);
+    this.cacheCurrentHouseholdData({ children: nextChildren });
+  }
+
+  private applyBonusMomentPointDelta(previousMoments: BonusMoment[], nextMoments: BonusMoment[]) {
+    this.applyPointDelta(sumBonusPointsByChild(previousMoments), sumBonusPointsByChild(nextMoments));
+  }
+
+  private applyCompletionPointDelta(previousCompletions: QuestCompletion[], nextCompletions: QuestCompletion[]) {
+    this.applyPointDelta(
+      sumAwardedCompletionPointsByChild(previousCompletions, (questId) => this.questById(questId)?.points ?? 0),
+      sumAwardedCompletionPointsByChild(nextCompletions, (questId) => this.questById(questId)?.points ?? 0),
+    );
+  }
+
+  private applyPointDelta(previousPointsByChild: Map<string, number>, nextPointsByChild: Map<string, number>) {
+    const childIds = new Set([...previousPointsByChild.keys(), ...nextPointsByChild.keys()]);
+
+    for (const childId of childIds) {
+      this.adjustChildPoints(childId, (nextPointsByChild.get(childId) ?? 0) - (previousPointsByChild.get(childId) ?? 0));
+    }
   }
 
   private updateViewer(nextViewer: ViewerSession) {
@@ -1677,18 +1819,89 @@ export class MockFamilyData {
     });
   }
 
-  private async syncFirebaseHouseholdState() {
+  private applyCachedHouseholdData(cache: HouseholdDataCache) {
+    if (cache.activeModeId && this.modeById(cache.activeModeId)) {
+      this.applyActiveMode(cache.activeModeId);
+    }
+
+    if (cache.children) {
+      this.replaceChildren(cache.children);
+    }
+
+    if (cache.quests) {
+      this.replaceQuests(cache.quests);
+    }
+
+    if (cache.completions) {
+      this.replaceCompletions(cache.completions);
+      this.lastProcessedRemoteCompletions = cache.completions;
+    }
+
+    if (cache.goals) {
+      this.replaceGoals(cache.goals);
+    }
+
+    if (cache.bonusMoments) {
+      this.replaceBonusMoments(cache.bonusMoments);
+      this.lastProcessedRemoteBonusMoments = cache.bonusMoments;
+    }
+
+    if (cache.journalEntries) {
+      this.replaceJournalEntries(cache.journalEntries);
+    }
+
+    if (cache.privilegeRules) {
+      this.replacePrivilegeRules(cache.privilegeRules);
+    }
+
+    if (cache.rewardRedemptions) {
+      this.replaceRewardRedemptions(cache.rewardRedemptions);
+    }
+  }
+
+  private cacheCurrentHouseholdData(patch: HouseholdDataCachePatch) {
+    const profile = this.firebaseUserProfile.currentProfile();
+
+    if (
+      !this.firebaseAuth.firebaseEnabled
+      || !this.firebaseAuth.isAuthenticated()
+      || profile?.source !== 'authAccount'
+      || !profile.householdId
+      || this.firebaseHouseholdKey(profile) !== this.currentFirebaseHouseholdKey
+    ) {
+      return;
+    }
+
+    this.householdDataCache.patch(profile, patch);
+  }
+
+  private firebaseHouseholdKey(profile: AuthBootstrapProfile) {
+    return profile.source === 'authAccount' && profile.householdId
+      ? `${profile.uid}:${profile.role}:${profile.personId}:${profile.householdId}`
+      : '';
+  }
+
+  private isCurrentFirebaseHousehold(profile: AuthBootstrapProfile) {
+    return this.firebaseHouseholdKey(profile) === this.currentFirebaseHouseholdKey;
+  }
+
+  private async syncFirebaseHouseholdState(
+    authReady: boolean,
+    isAuthenticated: boolean,
+    profileReady: boolean,
+    profile: AuthBootstrapProfile | null,
+  ) {
     if (!this.firebaseAuth.firebaseEnabled) {
       this.markHouseholdDataReady();
       return;
     }
 
-    if (!this.firebaseAuth.authReady()) {
+    if (!authReady) {
       this.markHouseholdDataPending();
       return;
     }
 
-    if (!this.firebaseAuth.isAuthenticated()) {
+    if (!isAuthenticated) {
       this.restoreDefaultActiveMode();
       this.restoreSeedChildren();
       this.restoreSeedBonusData();
@@ -1705,37 +1918,84 @@ export class MockFamilyData {
       this.firebasePrivilegeRules.stopSync();
       this.firebaseQuestData.stopSync();
       this.firebaseRewardData.stopSync();
+      this.currentFirebaseHouseholdKey = '';
+      this.optionalHouseholdDataLoadedKeys.clear();
+      this.optionalHouseholdDataLoadInFlight.clear();
       this.markHouseholdDataReady();
       return;
     }
 
-    if (!this.firebaseUserProfile.profileReady()) {
+    if (!profileReady) {
       this.markHouseholdDataPending();
       return;
     }
 
-    const profile = this.firebaseUserProfile.currentProfile();
-    const loadToken = ++this.firebaseHouseholdSyncToken;
-    this.markHouseholdDataPending();
+    let loadToken = 0;
 
     if (profile?.source === 'authAccount' && profile.householdId) {
-      this.firebaseHouseholdAccess.startSync(profile);
-      this.firebaseHouseholdSettings.startSync(profile);
-      this.firebaseBonusData.startSync(profile);
-      this.firebaseGoalData.startSync(profile);
-      this.firebaseJournalData.startSync(profile);
-      this.firebasePrivilegeRules.startSync(profile);
-      this.firebaseQuestData.startSync(profile);
-      this.firebaseRewardData.startSync(profile);
-      const fallbackModeId = untracked(() => this.activeModeId());
-      const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, fallbackModeId);
+      const householdKey = this.firebaseHouseholdKey(profile);
 
-      if (loadToken !== this.firebaseHouseholdSyncToken) {
+      if (this.currentFirebaseHouseholdKey === householdKey && untracked(() => this.householdDataReady())) {
         return;
       }
 
-      this.replaceChildren(children);
+      loadToken = ++this.firebaseHouseholdSyncToken;
+      this.markHouseholdDataPending();
+      const householdChanged = this.currentFirebaseHouseholdKey !== householdKey;
+      this.currentFirebaseHouseholdKey = householdKey;
+
+      if (householdChanged) {
+        this.optionalHouseholdDataLoadedKeys.clear();
+        this.optionalHouseholdDataLoadInFlight.clear();
+      }
+
+      this.resetFirebaseRefreshMarkers();
+      const cachedData = this.householdDataCache.read(profile);
+
+      if (cachedData) {
+        this.applyCachedHouseholdData(cachedData);
+      }
+
+      const hasCachedChildren = Boolean(cachedData && 'children' in cachedData);
+      const hasCachedQuests = Boolean(cachedData && 'quests' in cachedData);
+      const hasCachedCompletions = Boolean(cachedData && 'completions' in cachedData);
+      const hasCachedGoals = Boolean(cachedData && 'goals' in cachedData);
+      const hasCachedPrivilegeRules = Boolean(cachedData && 'privilegeRules' in cachedData);
+
+      this.firebaseHouseholdAccess.startSync(profile);
+      this.firebaseHouseholdSettings.startSync(profile);
+      this.firebasePrivilegeRules.stopSync();
+      this.firebaseBonusData.stopSync();
+      this.firebaseGoalData.stopSync();
+      this.firebaseJournalData.stopSync();
+      this.firebaseQuestData.stopSync();
+      this.firebaseRewardData.stopSync();
+      const fallbackModeId = untracked(() => this.activeModeId());
+
+      if (!hasCachedChildren) {
+        const children = await this.firebaseChildProfiles.loadAccessibleChildren(profile, fallbackModeId);
+
+        if (loadToken !== this.firebaseHouseholdSyncToken) {
+          return;
+        }
+
+        this.replaceChildren(children);
+      }
+
+      if (!hasCachedQuests || !hasCachedCompletions) {
+        await this.loadQuestDataSnapshot(profile, loadToken);
+      }
+
+      if (!hasCachedGoals) {
+        await this.loadGoalDataSnapshot(profile, loadToken);
+      }
+
+      if (!hasCachedPrivilegeRules) {
+        await this.loadPrivilegeRulesSnapshot(profile, loadToken);
+      }
     } else {
+      loadToken = ++this.firebaseHouseholdSyncToken;
+      this.markHouseholdDataPending();
       this.firebaseBonusData.stopSync();
       this.firebaseGoalData.stopSync();
       this.firebaseHouseholdAccess.stopSync();
@@ -1752,6 +2012,9 @@ export class MockFamilyData {
       this.restoreSeedPrivilegeData();
       this.restoreSeedQuestData();
       this.restoreSeedRewardData();
+      this.currentFirebaseHouseholdKey = '';
+      this.optionalHouseholdDataLoadedKeys.clear();
+      this.optionalHouseholdDataLoadInFlight.clear();
     }
 
     if (loadToken !== this.firebaseHouseholdSyncToken) {
@@ -1883,23 +2146,26 @@ export class MockFamilyData {
 
   private applyActiveMode(modeId: string) {
     this._activeModeId.set(modeId);
-    this._baseChildren.update((children) => children.map((child) => ({ ...child, activeModeId: modeId })));
+    const nextChildren = untracked(() => this._baseChildren()).map((child) => ({ ...child, activeModeId: modeId }));
+
+    setSignalIfChanged(this._baseChildren, nextChildren);
+    this.cacheCurrentHouseholdData({ activeModeId: modeId, children: nextChildren });
   }
 
   private restoreSeedChildren() {
-    this._baseChildren.set(this.firebaseAuth.firebaseEnabled ? [] : CHILD_PROFILES);
+    this.replaceChildren(this.firebaseAuth.firebaseEnabled ? [] : CHILD_PROFILES);
   }
 
   private restoreSeedBonusData() {
-    this._bonusMoments.set(this.firebaseAuth.firebaseEnabled ? [] : BONUS_MOMENTS);
+    this.replaceBonusMoments(this.firebaseAuth.firebaseEnabled ? [] : BONUS_MOMENTS);
   }
 
   private restoreSeedGoalData() {
-    this._goals.set(this.firebaseAuth.firebaseEnabled ? [] : GOALS);
+    this.replaceGoals(this.firebaseAuth.firebaseEnabled ? [] : GOALS);
   }
 
   private restoreSeedJournalData() {
-    this._journalEntries.set(this.firebaseAuth.firebaseEnabled ? [] : JOURNAL_ENTRIES);
+    this.replaceJournalEntries(this.firebaseAuth.firebaseEnabled ? [] : JOURNAL_ENTRIES);
   }
 
   private restoreSeedPrivilegeData() {
@@ -1907,8 +2173,8 @@ export class MockFamilyData {
   }
 
   private restoreSeedQuestData() {
-    this._quests.set(this.firebaseAuth.firebaseEnabled ? [] : QUESTS);
-    this._completions.set(this.firebaseAuth.firebaseEnabled ? [] : SEED_COMPLETIONS);
+    this.replaceQuests(this.firebaseAuth.firebaseEnabled ? [] : QUESTS);
+    this.replaceCompletions(this.firebaseAuth.firebaseEnabled ? [] : SEED_COMPLETIONS);
   }
 
   private restoreSeedRewardData() {
@@ -1918,11 +2184,50 @@ export class MockFamilyData {
   private replaceRewardRedemptions(redemptions: RewardRedemption[]) {
     const nextRedemptions = redemptions.slice().sort((left, right) => right.requestedAt.localeCompare(left.requestedAt));
 
-    this._rewardRedemptions.set(nextRedemptions);
+    setSignalIfChanged(this._rewardRedemptions, nextRedemptions);
+    this.cacheCurrentHouseholdData({ rewardRedemptions: nextRedemptions });
+  }
+
+  private replaceBonusMoments(moments: BonusMoment[]) {
+    const nextMoments = moments.slice().sort((left, right) => right.awardedAt.localeCompare(left.awardedAt));
+
+    setSignalIfChanged(this._bonusMoments, nextMoments);
+    this.cacheCurrentHouseholdData({ bonusMoments: nextMoments });
+  }
+
+  private replaceCompletions(completions: QuestCompletion[]) {
+    const nextCompletions = completions.slice().sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+
+    setSignalIfChanged(this._completions, nextCompletions);
+    this.cacheCurrentHouseholdData({ completions: nextCompletions });
+  }
+
+  private replaceGoals(goals: Goal[]) {
+    const nextGoals = goals.slice().sort((left, right) => left.title.localeCompare(right.title));
+
+    setSignalIfChanged(this._goals, nextGoals);
+    this.cacheCurrentHouseholdData({ goals: nextGoals });
+  }
+
+  private replaceJournalEntries(entries: JournalEntry[]) {
+    const nextEntries = entries.slice().sort((left, right) => right.date.localeCompare(left.date));
+
+    setSignalIfChanged(this._journalEntries, nextEntries);
+    this.cacheCurrentHouseholdData({ journalEntries: nextEntries });
+  }
+
+  private replaceQuests(quests: Quest[]) {
+    const nextQuests = quests.slice().sort((left, right) => left.title.localeCompare(right.title));
+
+    setSignalIfChanged(this._quests, nextQuests);
+    this.cacheCurrentHouseholdData({ quests: nextQuests });
   }
 
   private replacePrivilegeRules(rules: PrivilegeRule[]) {
-    this._privilegeRules.set(rules.slice());
+    const nextRules = rules.slice();
+
+    setSignalIfChanged(this._privilegeRules, nextRules);
+    this.cacheCurrentHouseholdData({ privilegeRules: nextRules });
   }
 
   private upsertRewardRedemption(redemption: RewardRedemption) {
@@ -1933,27 +2238,227 @@ export class MockFamilyData {
   }
 
   private upsertBonusMoment(moment: BonusMoment) {
-    this._bonusMoments.update((moments) =>
-      [moment, ...moments.filter((item) => item.id !== moment.id)].sort((left, right) =>
-        right.awardedAt.localeCompare(left.awardedAt),
-      ),
+    this.replaceBonusMoments(
+      [
+        moment,
+        ...untracked(() => this.bonusMoments()).filter((item) => item.id !== moment.id),
+      ],
     );
   }
 
   private upsertGoal(goal: Goal) {
-    this._goals.update((goals) => [goal, ...goals.filter((item) => item.id !== goal.id)]);
+    this.replaceGoals([
+      goal,
+      ...untracked(() => this.goals()).filter((item) => item.id !== goal.id),
+    ]);
   }
 
   private upsertJournalEntry(entry: JournalEntry) {
-    this._journalEntries.update((entries) =>
-      [entry, ...entries.filter((item) => item.id !== entry.id)].sort((left, right) =>
-        right.date.localeCompare(left.date),
-      ),
+    this.replaceJournalEntries(
+      [
+        entry,
+        ...untracked(() => this.journalEntries()).filter((item) => item.id !== entry.id),
+      ],
     );
   }
 
   private removeGoal(goalId: string) {
-    this._goals.update((goals) => goals.filter((goal) => goal.id !== goalId));
+    this.replaceGoals(untracked(() => this.goals()).filter((goal) => goal.id !== goalId));
+  }
+
+  private recordQuestCompletionLocally(questId: string, childId: string): QuestMutationResult {
+    const quest = this.questById(questId);
+
+    if (!quest) {
+      return {
+        ok: false,
+        message: 'That quest is no longer available.',
+      };
+    }
+
+    const existing = this.findCompletion(questId, childId);
+
+    if (existing && (existing.status === 'approved' || existing.status === 'autoApproved' || existing.status === 'pending')) {
+      return { ok: true, source: 'local' };
+    }
+
+    const status: QuestCompletion['status'] = quest.requiresApproval ? 'pending' : 'autoApproved';
+    const completion: QuestCompletion = {
+      id: completionIdForToday(childId, questId),
+      questId,
+      childId,
+      completedAt: existing?.completedAt ?? new Date().toISOString(),
+      status,
+      approvedBy: quest.requiresApproval ? undefined : 'Auto-approved',
+      notes: quest.requiresApproval ? 'Waiting for parent approval.' : 'Auto-approved by quest settings.',
+    };
+
+    this.upsertCompletion(completion);
+
+    if (status === 'autoApproved') {
+      this.adjustChildPoints(childId, quest.points);
+    }
+
+    return { ok: true, source: 'local' };
+  }
+
+  private setParentQuestCompletionLocally(questId: string, parentPersonId: string, done: boolean): QuestMutationResult {
+    const completionId = completionIdForToday(parentPersonId, questId);
+
+    if (!done) {
+      this.removeCompletion(completionId);
+      return { ok: true, source: 'local' };
+    }
+
+    this.upsertCompletion({
+      id: completionId,
+      questId,
+      childId: parentPersonId,
+      completedAt: new Date().toISOString(),
+      status: 'autoApproved',
+      approvedBy: 'Self-certified',
+      notes: 'Self-certified by parent.',
+    });
+
+    return { ok: true, source: 'local' };
+  }
+
+  private approveCompletionLocally(completionId: string): QuestMutationResult {
+    const existing = this.completions().find((completion) => completion.id === completionId);
+
+    if (!existing) {
+      return {
+        ok: false,
+        message: 'That quest check is no longer waiting for review.',
+      };
+    }
+
+    if (existing.status !== 'pending') {
+      return { ok: true, source: 'local' };
+    }
+
+    const quest = this.questById(existing.questId);
+
+    if (!quest) {
+      return {
+        ok: false,
+        message: 'The quest attached to that check could not be found.',
+      };
+    }
+
+    this.upsertCompletion({
+      ...existing,
+      status: 'approved',
+      approvedBy: 'Parent',
+      notes: 'Nice work. Approved by a parent.',
+    });
+    this.adjustChildPoints(existing.childId, quest.points);
+
+    return { ok: true, source: 'local' };
+  }
+
+  private rejectCompletionLocally(completionId: string): QuestMutationResult {
+    const existing = this.completions().find((completion) => completion.id === completionId);
+
+    if (!existing) {
+      return {
+        ok: false,
+        message: 'That quest check is no longer waiting for review.',
+      };
+    }
+
+    if (existing.status !== 'pending') {
+      return { ok: true, source: 'local' };
+    }
+
+    this.upsertCompletion({
+      ...existing,
+      status: 'rejected',
+      approvedBy: undefined,
+      notes: 'Almost there. Clean it up once more and resubmit.',
+    });
+
+    return { ok: true, source: 'local' };
+  }
+
+  private overrideQuestStatusLocally(
+    questId: string,
+    childId: string,
+    status: QuestBoardStatus,
+  ): QuestMutationResult {
+    const quest = this.questById(questId);
+
+    if (!quest) {
+      return {
+        ok: false,
+        message: 'That quest is no longer available.',
+      };
+    }
+
+    const existing = this.findCompletion(questId, childId);
+    const previousAwardedPoints =
+      existing && (existing.status === 'approved' || existing.status === 'autoApproved') ? quest.points : 0;
+
+    if (status === 'open') {
+      if (existing) {
+        this.removeCompletion(existing.id);
+      }
+
+      if (previousAwardedPoints > 0) {
+        this.adjustChildPoints(childId, -previousAwardedPoints);
+      }
+
+      return { ok: true, source: 'local' };
+    }
+
+    const nextStatus: QuestCompletion['status'] =
+      status === 'approved' ? 'approved' : status === 'pending' ? 'pending' : 'rejected';
+    const nextAwardedPoints = status === 'approved' ? quest.points : 0;
+    const pointsDelta = nextAwardedPoints - previousAwardedPoints;
+
+    this.upsertCompletion({
+      id: existing?.id ?? completionIdForToday(childId, questId),
+      questId,
+      childId,
+      completedAt: existing?.completedAt ?? new Date().toISOString(),
+      status: nextStatus,
+      approvedBy: status === 'approved' ? 'Parent override' : undefined,
+      notes:
+        status === 'approved'
+          ? 'Approved directly by a parent override.'
+          : status === 'pending'
+            ? 'Placed back into parent review by override.'
+            : 'Marked for another pass by a parent override.',
+    });
+
+    if (pointsDelta !== 0) {
+      this.adjustChildPoints(childId, pointsDelta);
+    }
+
+    return { ok: true, source: 'local' };
+  }
+
+  private upsertCompletion(completion: QuestCompletion) {
+    this.replaceCompletions([
+      completion,
+      ...untracked(() => this.completions()).filter((item) => item.id !== completion.id),
+    ]);
+  }
+
+  private removeCompletion(completionId: string) {
+    this.replaceCompletions(untracked(() => this.completions()).filter((completion) => completion.id !== completionId));
+  }
+
+  private upsertQuest(quest: Quest) {
+    this.replaceQuests([
+      quest,
+      ...untracked(() => this.quests()).filter((item) => item.id !== quest.id),
+    ]);
+  }
+
+  private removeQuest(questId: string) {
+    this.replaceQuests(untracked(() => this.quests()).filter((quest) => quest.id !== questId));
+    this.replaceCompletions(untracked(() => this.completions()).filter((completion) => completion.questId !== questId));
   }
 
   private baseChildById(childId: string) {
@@ -1994,13 +2499,13 @@ export class MockFamilyData {
   }
 
   private markHouseholdDataPending() {
-    if (this._householdDataReady()) {
+    if (untracked(() => this._householdDataReady())) {
       this._householdDataReady.set(false);
     }
   }
 
   private markHouseholdDataReady() {
-    if (!this._householdDataReady()) {
+    if (!untracked(() => this._householdDataReady())) {
       this._householdDataReady.set(true);
     }
 
@@ -2013,6 +2518,13 @@ export class MockFamilyData {
     }
 
     this.householdReadyWaiters.clear();
+  }
+
+  private resetFirebaseRefreshMarkers() {
+    this.lastProcessedRemoteActiveModeId = undefined;
+    this.lastProcessedRemoteBonusMoments = undefined;
+    this.lastProcessedRemoteCompletions = undefined;
+    this.firebaseChildrenRefreshQueued = false;
   }
 }
 
@@ -2029,6 +2541,53 @@ function sortQuestBoardItems(left: QuestBoardItem, right: QuestBoardItem) {
   }
 
   return left.quest.title.localeCompare(right.quest.title);
+}
+
+function setSignalIfChanged<T>(target: WritableSignal<T>, nextValue: T) {
+  if (sameCachedValue(untracked(() => target()), nextValue)) {
+    return;
+  }
+
+  target.set(nextValue);
+}
+
+function sameCachedValue<T>(left: T | null | undefined, right: T | null | undefined) {
+  if (left === right) {
+    return true;
+  }
+
+  if (left == null || right == null) {
+    return false;
+  }
+
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function sumBonusPointsByChild(moments: BonusMoment[]) {
+  const totals = new Map<string, number>();
+
+  for (const moment of moments) {
+    totals.set(moment.childId, (totals.get(moment.childId) ?? 0) + moment.points);
+  }
+
+  return totals;
+}
+
+function sumAwardedCompletionPointsByChild(
+  completions: QuestCompletion[],
+  pointsForQuest: (questId: string) => number,
+) {
+  const totals = new Map<string, number>();
+
+  for (const completion of completions) {
+    if (completion.status !== 'approved' && completion.status !== 'autoApproved') {
+      continue;
+    }
+
+    totals.set(completion.childId, (totals.get(completion.childId) ?? 0) + pointsForQuest(completion.questId));
+  }
+
+  return totals;
 }
 
 function questWeight(item: QuestBoardItem) {
@@ -2155,6 +2714,10 @@ function daysBetween(isoDate: string) {
 
 function pad(value: number) {
   return value.toString().padStart(2, '0');
+}
+
+function completionIdForToday(childId: string, questId: string) {
+  return `completion_${childId}_${questId}_${formatDateKey(new Date())}`;
 }
 
 function createId(prefix: string) {

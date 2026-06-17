@@ -84,6 +84,8 @@ export class JournalPage {
   });
 
   constructor() {
+    void this.familyData.ensureJournalEntriesLoaded();
+
     effect(() => {
       const childId = this.childId();
       const todayEntry = this.todayEntry();

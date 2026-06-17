@@ -291,6 +291,9 @@ export class ParentAdminPage {
   ]);
 
   constructor() {
+    void this.familyData.ensureBonusMomentsLoaded();
+    void this.familyData.ensureRewardRedemptionsLoaded();
+
     effect(() => {
       const firstChildId = this.children()[0]?.id ?? '';
 

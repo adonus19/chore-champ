@@ -5,9 +5,10 @@ import {
   collection,
   connectFirestoreEmulator,
   doc,
+  getDoc,
   getFirestore,
-  runTransaction,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore';
 
 import { environment } from '../../../environments/environment';
@@ -78,88 +79,79 @@ export class FirebaseAccountBootstrapService {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
 
     try {
-      return await runTransaction(firestore, async (transaction) => {
-        const existingAccountSnapshot = await transaction.get(authAccountRef);
+      const batch = writeBatch(firestore);
 
-        if (existingAccountSnapshot.exists()) {
-          const existingAccount = existingAccountSnapshot.data() as ExistingAuthAccount;
-
-          if (existingAccount.accountType && existingAccount.accountType !== 'parent') {
-            return {
-              ok: false,
-              message: 'This account is already linked to a child profile and cannot start a parent household.',
-            };
-          }
-
-          return {
-            ok: true,
-            created: false,
-            householdId: existingAccount.defaultHouseholdId ?? undefined,
-          };
-        }
-
-        transaction.set(authAccountRef, {
-          uid,
-          personId,
-          accountType: 'parent',
-          status: 'active',
-          defaultHouseholdId: householdRef.id,
-          lastActiveHouseholdId: householdRef.id,
-          login: {
-            provider: 'password',
-            email: normalizedDraft.email,
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        transaction.set(personRef, {
-          personId,
-          type: 'parent',
-          displayName: normalizedDraft.displayName,
-          avatarUrl: null,
-          themeColor: null,
-          status: 'active',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        transaction.set(householdRef, {
-          householdId: householdRef.id,
-          name: normalizedDraft.householdName,
-          createdByPersonId: personId,
-          status: 'active',
-          settings: {
-            timezone,
-            defaultModeId: null,
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        transaction.set(membershipRef, {
-          personId,
-          role: 'owner',
-          status: 'active',
-          permissions: {
-            canManageChildren: true,
-            canManageQuests: true,
-            canApproveRewards: true,
-            canInviteParents: true,
-            canManageChildCredentials: true,
-          },
-          joinedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-
-        return {
-          ok: true,
-          created: true,
-          householdId: householdRef.id,
-        };
+      batch.set(authAccountRef, {
+        uid,
+        personId,
+        accountType: 'parent',
+        status: 'active',
+        defaultHouseholdId: householdRef.id,
+        lastActiveHouseholdId: householdRef.id,
+        login: {
+          provider: 'password',
+          email: normalizedDraft.email,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
+
+      batch.set(personRef, {
+        personId,
+        type: 'parent',
+        displayName: normalizedDraft.displayName,
+        avatarUrl: null,
+        themeColor: null,
+        status: 'active',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      batch.set(householdRef, {
+        householdId: householdRef.id,
+        name: normalizedDraft.householdName,
+        createdByPersonId: personId,
+        status: 'active',
+        settings: {
+          timezone,
+          defaultModeId: null,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      batch.set(membershipRef, {
+        personId,
+        role: 'owner',
+        status: 'active',
+        permissions: {
+          canManageChildren: true,
+          canManageQuests: true,
+          canApproveRewards: true,
+          canInviteParents: true,
+          canManageChildCredentials: true,
+        },
+        joinedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      return {
+        ok: true,
+        created: true,
+        householdId: householdRef.id,
+      };
     } catch (error) {
+      if (isPermissionDenied(error)) {
+        const existingAccount = await readExistingParentAccount(firestore, uid);
+
+        if (existingAccount) {
+          return existingAccount;
+        }
+      }
+
       return {
         ok: false,
         message: describeBootstrapError(error),
@@ -167,6 +159,33 @@ export class FirebaseAccountBootstrapService {
     }
   }
 
+}
+
+async function readExistingParentAccount(firestore: Firestore, uid: string): Promise<BootstrapResult | null> {
+  try {
+    const authAccountSnapshot = await getDoc(doc(firestore, environment.firebase.authAccountCollection, uid));
+
+    if (!authAccountSnapshot.exists()) {
+      return null;
+    }
+
+    const existingAccount = authAccountSnapshot.data() as ExistingAuthAccount;
+
+    if (existingAccount.accountType && existingAccount.accountType !== 'parent') {
+      return {
+        ok: false,
+        message: 'This account is already linked to a child profile and cannot start a parent household.',
+      };
+    }
+
+    return {
+      ok: true,
+      created: false,
+      householdId: existingAccount.defaultHouseholdId ?? undefined,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function createFirebaseApp(): FirebaseApp | null {
@@ -226,7 +245,16 @@ function describeBootstrapError(error: unknown) {
     case 'unavailable':
     case 'firestore/unavailable':
       return "We couldn't reach the server while creating the family space. Check the network and try again.";
+    case 'resource-exhausted':
+    case 'firestore/resource-exhausted':
+      return 'The server temporarily slowed setup after too many requests. Wait a minute, then submit again to continue.';
     default:
       return 'The parent account was created, but the family setup could not finish yet.';
   }
+}
+
+function isPermissionDenied(error: unknown) {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+
+  return code === 'permission-denied' || code === 'firestore/permission-denied';
 }

@@ -8,6 +8,7 @@ import {
   getFirestore,
   runTransaction,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 
 import { environment } from '../../../environments/environment';
@@ -28,17 +29,6 @@ interface ChildLinkDocument {
   sourceHouseholdId?: string;
   status?: 'pending' | 'accepted' | 'expired' | 'revoked';
   targetHouseholdId?: string | null;
-}
-
-interface ChildProfileDocument {
-  profile?: {
-    displayName?: string;
-  };
-}
-
-interface ChildMembershipDocument {
-  role?: string;
-  status?: string;
 }
 
 export interface ChildHouseholdLinkCreateResult {
@@ -86,88 +76,41 @@ export class FirebaseChildHouseholdLinksService {
     }
 
     const householdId = viewerProfile.householdId;
-    const membershipRef = doc(firestore, HOUSEHOLDS_COLLECTION, householdId, MEMBERS_SUBCOLLECTION, childId);
-    const childProfileRef = doc(firestore, environment.firebase.childProfileCollection, childId);
+    const code = createChildLinkCode();
+    const linkRef = doc(firestore, environment.firebase.childLinkCollection, code);
+    const expiresAt = Timestamp.fromDate(new Date(Date.now() + CHILD_LINK_EXPIRATION_DAYS * 24 * 60 * 60 * 1000));
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const code = createChildLinkCode();
-      const linkRef = doc(firestore, environment.firebase.childLinkCollection, code);
-      const expiresAt = Timestamp.fromDate(new Date(Date.now() + CHILD_LINK_EXPIRATION_DAYS * 24 * 60 * 60 * 1000));
+    try {
+      await setDoc(linkRef, {
+        linkId: code,
+        childPersonId: childId,
+        sourceHouseholdId: householdId,
+        targetHouseholdId: null,
+        createdByPersonId: viewerProfile.personId,
+        intendedChildPolicies: {
+          householdSwitchPolicy: 'parentOnly',
+        },
+        status: 'pending',
+        acceptedByPersonId: null,
+        acceptedAt: null,
+        expiresAt,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
 
-      try {
-        const result = await runTransaction(firestore, async (transaction) => {
-          const [existingLinkSnapshot, membershipSnapshot, childProfileSnapshot] = await Promise.all([
-            transaction.get(linkRef),
-            transaction.get(membershipRef),
-            transaction.get(childProfileRef),
-          ]);
-
-          if (existingLinkSnapshot.exists()) {
-            throw new Error('link-code-taken');
-          }
-
-          if (!membershipSnapshot.exists()) {
-            throw new Error('child-membership-missing');
-          }
-
-          const membership = membershipSnapshot.data() as ChildMembershipDocument;
-
-          if (membership.role !== 'child' || membership.status !== 'active') {
-            throw new Error('child-membership-inactive');
-          }
-
-          if (!childProfileSnapshot.exists()) {
-            throw new Error('child-profile-missing');
-          }
-
-          const childProfile = childProfileSnapshot.data() as ChildProfileDocument;
-          const childName = childProfile.profile?.displayName?.trim() || childId;
-
-          transaction.set(linkRef, {
-            linkId: code,
-            childPersonId: childId,
-            sourceHouseholdId: householdId,
-            targetHouseholdId: null,
-            createdByPersonId: viewerProfile.personId,
-            intendedChildPolicies: {
-              householdSwitchPolicy: 'parentOnly',
-            },
-            status: 'pending',
-            acceptedByPersonId: null,
-            acceptedAt: null,
-            expiresAt,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-
-          return {
-            childName,
-          };
-        });
-
-        return {
-          ok: true,
-          code: formatChildLinkCode(code),
-          childName: result.childName,
-          expiresAtLabel: formatLinkExpiration(expiresAt.toDate()),
-          source: 'firebase',
-        };
-      } catch (error) {
-        if (error instanceof Error && error.message === 'link-code-taken') {
-          continue;
-        }
-
-        return {
-          ok: false,
-          message: describeChildLinkCreateError(error),
-        };
-      }
+      return {
+        ok: true,
+        code: formatChildLinkCode(code),
+        childName: childId,
+        expiresAtLabel: formatLinkExpiration(expiresAt.toDate()),
+        source: 'firebase',
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: describeChildLinkCreateError(error),
+      };
     }
-
-    return {
-      ok: false,
-      message: 'A unique child link code could not be generated right now. Try again in a moment.',
-    };
   }
 
   async acceptChildHouseholdLink(
@@ -375,6 +318,9 @@ function describeChildLinkCreateError(error: unknown) {
     case 'unavailable':
     case 'firestore/unavailable':
       return "We couldn't reach the server while creating that child link. Check the network and try again.";
+    case 'resource-exhausted':
+    case 'firestore/resource-exhausted':
+      return 'The server temporarily slowed child linking after too many requests. Wait a minute, then try again.';
     default:
       return 'The child household link could not be created right now.';
   }
@@ -410,6 +356,9 @@ function describeChildLinkAcceptError(error: unknown) {
     case 'unavailable':
     case 'firestore/unavailable':
       return "We couldn't reach the server while linking that child to this household. Check the network and try again.";
+    case 'resource-exhausted':
+    case 'firestore/resource-exhausted':
+      return 'The server temporarily slowed child linking after too many requests. Wait a minute, then try again.';
     default:
       return 'That child could not be linked into this household right now.';
   }
