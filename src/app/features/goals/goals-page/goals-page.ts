@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 
 import { Goal, QuestCategory } from '../../../core/models/family.models';
+import { CelebrationService } from '../../../core/services/celebration.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 
 @Component({
@@ -15,6 +16,7 @@ import { MockFamilyData } from '../../../core/services/mock-family-data';
 export class GoalsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly familyData = inject(MockFamilyData);
+  private readonly celebration = inject(CelebrationService);
   private readonly childId = toSignal(this.route.paramMap.pipe(map((params) => params.get('childId') ?? '')), {
     initialValue: this.route.snapshot.paramMap.get('childId') ?? '',
   });
@@ -129,6 +131,11 @@ export class GoalsPage {
       kind: 'success',
       text: `Logged +${amount} ${formatUnit(goal.unit, amount)} toward ${goal.title}.`,
     });
+
+    // Celebrate only the moment a goal crosses its target, not every routine progress log.
+    if (goal.current < goal.target && goal.current + amount >= goal.target) {
+      this.celebration.celebrate('big');
+    }
   }
 }
 

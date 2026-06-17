@@ -9,6 +9,7 @@ import {
   RewardRequestItem,
   RewardType,
 } from '../../../core/models/family.models';
+import { CelebrationService } from '../../../core/services/celebration.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 
 @Component({
@@ -20,6 +21,7 @@ import { MockFamilyData } from '../../../core/services/mock-family-data';
 export class RewardsPage {
   private readonly route = inject(ActivatedRoute);
   private readonly familyData = inject(MockFamilyData);
+  private readonly celebration = inject(CelebrationService);
   private readonly childId = toSignal(this.route.paramMap.pipe(map((params) => params.get('childId') ?? '')), {
     initialValue: this.route.snapshot.paramMap.get('childId') ?? '',
   });
@@ -86,6 +88,9 @@ export class RewardsPage {
         ? `${reward.title} is now waiting for a parent review.`
         : `${reward.title} is redeemed and your points bank is updated.`,
     });
+
+    // A redeemed reward is a real win; a pending parent review is a smaller moment.
+    this.celebration.celebrate(reward.requiresParentApproval ? 'small' : 'big');
   }
 
   rewardTypeLabel(type: RewardType) {

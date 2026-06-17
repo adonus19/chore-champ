@@ -11,6 +11,7 @@ import {
   QuestDifficulty,
   QuestRecurrence,
 } from '../../../core/models/family.models';
+import { CelebrationService } from '../../../core/services/celebration.service';
 import { MockFamilyData } from '../../../core/services/mock-family-data';
 
 @Component({
@@ -22,6 +23,7 @@ import { MockFamilyData } from '../../../core/services/mock-family-data';
 export class ChildTodayPage {
   private readonly route = inject(ActivatedRoute);
   private readonly familyData = inject(MockFamilyData);
+  private readonly celebration = inject(CelebrationService);
   private readonly childId = toSignal(this.route.paramMap.pipe(map((params) => params.get('childId') ?? '')), {
     initialValue: this.route.snapshot.paramMap.get('childId') ?? '',
   });
@@ -89,6 +91,7 @@ export class ChildTodayPage {
 
     this.actionFeedback.set(null);
     this.pendingQuestId.set(item.quest.id);
+    const wasAllRequiredDone = this.vm()?.allRequiredDone ?? false;
     const result = await this.familyData.completeQuest(item.quest.id, childId);
     this.pendingQuestId.set('');
 
@@ -106,6 +109,13 @@ export class ChildTodayPage {
         ? `${item.quest.title} is waiting for a parent check now.`
         : `${item.quest.title} is banked and your points are already on the board.`,
     });
+
+    // Big burst when the required board just turned all-green; a small one for each banked win.
+    if (!wasAllRequiredDone && (this.vm()?.allRequiredDone ?? false)) {
+      this.celebration.celebrate('big');
+    } else if (!item.quest.requiresApproval) {
+      this.celebration.celebrate('small');
+    }
   }
 
   categoryLabel(category: QuestCategory) {

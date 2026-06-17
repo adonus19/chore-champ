@@ -141,6 +141,7 @@ Update this file at the end of each completed implementation pass.
 - Cut Firebase read pressure substantially by introducing household-scoped root caching, localStorage-backed hydration, one-shot snapshot loaders for slower-moving data, listener trimming at startup, and cache-aware local mutations instead of broad post-write rereads.
 - Added first-pass parent password reset from the public login page using the standard Firebase Auth email reset flow, while keeping child reset in the parent-mediated backlog.
 - Implemented parent-guided child password reset as the repo's first backend: a `resetChildPassword` Cloud Function (Admin SDK) that verifies parent credential permission, sets a temporary password, revokes child sessions, and flags `mustChangePassword`; a parent re-auth gate plus temp-password display in the child manager; and a forced `/child/set-password` screen that lets the child set their own password (client-side `updatePassword`) and clear the flag through a narrow Firestore rule.
+- Added a dependency-free, app-wide celebration system: a `CelebrationService` plus a globally mounted canvas `ConfettiOverlay` that bursts on win moments — the child's required board turning all-green, a reward redeemed, and a goal crossing its target — with a smaller burst per individually banked quest and `prefers-reduced-motion` honored.
 
 ## In Progress
 
@@ -189,7 +190,7 @@ Keep feature work after MVP in this single section so it stays separate from the
 - Expanded avatar options plus custom avatar uploads.
 - Emoji or custom artwork reactions for hearts, stars, and similar encouragement moments.
 - More visible lightweight gamification for quests, bonuses, and progress.
-- Confetti and other celebration animations.
+- ~~Confetti and other celebration animations.~~ Done: a dependency-free canvas confetti overlay fires on win moments (required board complete, reward redeemed, goal reached), with a smaller burst for individual banked quests and reduced-motion respected.
 - Younger-kid character companions or caricatures for encouragement during task flows.
 - Smooth forward/back page transition animations.
 - Advanced child-initiated household switching rules where switching from household `A` to `B` may require both permission to leave `A` and permission to enter `B`.

@@ -7,6 +7,7 @@ import { filter, map, startWith } from 'rxjs';
 import { FirebaseAuthService } from './core/services/firebase-auth.service';
 import { MockFamilyData } from './core/services/mock-family-data';
 import { PwaInstallService } from './core/services/pwa-install.service';
+import { ConfettiOverlay } from './shared/ui/confetti-overlay/confetti-overlay';
 
 type ShellIcon = 'back' | 'dashboard' | 'family' | 'goals' | 'install' | 'kids' | 'login' | 'me' | 'profile' | 'signOut';
 
@@ -20,7 +21,7 @@ interface ShellNavLink {
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, ConfettiOverlay],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
