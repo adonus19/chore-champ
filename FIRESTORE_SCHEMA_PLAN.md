@@ -1139,22 +1139,99 @@ Behavior:
 
 ### Reset child password
 
-Suggested backend operation:
-
-- `resetChildPassword`
-
-Behavior:
-
-- parent must be authenticated
-- parent must have `canManageChildCredentials`
-- parent should re-authenticate recently before this action
-- backend generates or accepts a temporary password
-- backend updates the Firebase Auth password via Admin SDK
-- backend can also update `authAccounts/{uid}` or `childProfiles/{childPersonId}` with a flag requiring password change on next sign-in
+This is now specified concretely below in "Child Password Reset Implementation Spec (MVP)".
 
 Optional future extension:
 
 - audit these actions in a household-scoped admin log
+
+## Child Password Reset Implementation Spec (MVP)
+
+Decided 2026-06-17. This is the first real backend in the repo. It exists because a forgotten-password
+reset for another account is the one credential action the Firebase **client** SDK cannot perform:
+`updatePassword` / `deleteUser` only act on the currently signed-in user and need a recent credential,
+and the child's alias (`child.<id>@children.auth.chorechamp.app`) is non-deliverable, so password
+reset email is not an option. Child login *creation* works client-side only because it *creates a new*
+account via the secondary-app trick; reset must mutate an existing account, which requires the Admin SDK.
+
+### Why "temp password + forced change" is the chosen shape
+
+Admin is used only for the step the client genuinely cannot do (set a forgotten password). The child
+then signs in with the temp password, so when they pick their own real password they are *already
+authenticated with a fresh credential* — meaning the actual password change is a pure client-side
+`updatePassword`, no admin involved. Each tool is used exactly where it is required.
+
+### Callable: `resetChildPassword`
+
+Input: `{ childId }` (the child's canonical person id).
+
+Caller checks (all required):
+
+- `request.auth` is present (parent is signed in).
+- The app has the parent **re-authenticate** (`reauthenticateWithCredential` with their own email +
+  password) immediately before calling. Re-auth is required every time for this action.
+- The caller has an active parent membership in the child's household with
+  `permissions.canManageChildCredentials === true` or `permissions.canManageChildren === true`
+  (same gate as `enableChildLogin`).
+- The child is an active member of that household and has `login.enabled === true`.
+
+Server actions (Admin SDK, bypasses security rules):
+
+1. Resolve the child auth uid from `childProfiles/{childId}.login.authUid`.
+2. Generate a friendly temp password server-side (port the `generateTempPassword` word-list util into
+   the function; never accept a client-supplied password for this flow).
+3. `auth.updateUser(childUid, { password: tempPassword })`.
+4. `auth.revokeRefreshTokens(childUid)` to invalidate any existing child sessions.
+5. Set the forced-change flag on **both** docs (the child reads `authAccounts/{uid}` at login):
+   - `authAccounts/{childUid}.login.mustChangePassword = true`, `login.passwordResetAt = serverTimestamp()`
+   - `childProfiles/{childId}.login.mustChangePassword = true`, `login.passwordResetAt = serverTimestamp()`
+6. Return `{ tempPassword }` in the callable response only. The temp password is never persisted to
+   Firestore; it travels back to the authenticated parent over the callable channel and is shown on
+   screen for the parent to relay to the child.
+
+### Schema additions
+
+On `childProfiles/{childPersonId}.login` and mirrored on `authAccounts/{childUid}.login`:
+
+```ts
+{
+  // ...existing login fields...
+  mustChangePassword?: boolean;   // true after a parent reset, false/absent once the child sets their own
+  passwordResetAt?: Timestamp;    // when the last parent-initiated reset happened
+}
+```
+
+### Forced-change-on-next-login flow (child side, client-only)
+
+1. Child signs in with the temp password through the existing username flow (unchanged).
+2. Login bootstrap already reads `authAccounts/{uid}`; it now also reads `login.mustChangePassword`.
+   If true, the app routes the child to a "Create your new password" screen **before** the board.
+3. Child sets a new password via client `updatePassword` (works — they hold a fresh credential).
+4. The `mustChangePassword` flag is cleared (see decision below), then the child continues to the board.
+5. If the child abandons the app before changing, the flag persists and re-prompts on next sign-in.
+
+### Open decision carried into implementation: clearing the flag
+
+- MVP choice: a **narrow Firestore rule** lets the child write only `login.mustChangePassword: false`
+  on their own `authAccounts/{uid}`. One function total. The only downside is a child theoretically
+  skipping their forced change, which is low-stakes.
+- Hardening (backlog): a second callable `completeChildPasswordReset` clears the flag server-side so
+  the client never writes it. Group this with the existing "move privileged child writes behind a
+  backend" backlog items.
+
+### Backend infra this introduces
+
+- `firebase init functions` → `functions/` (TypeScript), `firebase-admin` + `firebase-functions` v2
+  `onCall`, region-pinned.
+- Requires the Firebase **Blaze** plan (Cloud Functions prerequisite) — the one external dependency.
+- Client wiring: `getFunctions(app, region)` + `httpsCallable('resetChildPassword')`.
+
+### Parent UX surface
+
+- On the child card in the parent child manager, when `login.enabled`, show a "Reset sign-in" action.
+- Action opens a re-auth confirm, then calls the function and displays the returned temp password
+  prominently (copyable) with guidance: "Give this to {child}; they'll create their own next time
+  they sign in."
 
 ## Username Lookup Recovery
 

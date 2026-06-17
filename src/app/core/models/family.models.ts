@@ -42,6 +42,7 @@ export interface AuthBootstrapProfile {
   childId?: string;
   avatarUrl?: string;
   themeColor?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface ViewerSession {
@@ -75,6 +76,7 @@ export interface ChildProfile {
     usernameNormalized?: string;
     usernameDisplay?: string;
     householdSwitchPolicy?: HouseholdSwitchPolicy;
+    mustChangePassword?: boolean;
   };
 }
 

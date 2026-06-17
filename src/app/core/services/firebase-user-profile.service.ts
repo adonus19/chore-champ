@@ -7,6 +7,8 @@ import {
   getDoc,
   getFirestore,
   onSnapshot,
+  serverTimestamp,
+  updateDoc,
   Unsubscribe,
 } from 'firebase/firestore';
 
@@ -31,6 +33,7 @@ interface AuthAccountDocument {
     email?: string;
     username?: string;
     internalEmailAlias?: string;
+    mustChangePassword?: boolean;
   };
 }
 
@@ -81,6 +84,35 @@ export class FirebaseUserProfileService {
     await new Promise<void>((resolve) => {
       this.profileWaiters.add(resolve);
     });
+  }
+
+  /**
+   * Clears the forced-password-change flag on the signed-in child's own auth account after they set
+   * a new password. The narrow Firestore rule only permits flipping login.mustChangePassword to false,
+   * so this writes that single nested field plus updatedAt.
+   */
+  async clearMustChangePassword(): Promise<{ ok: boolean; message?: string }> {
+    const firestore = this.firestore;
+    const currentUserUid = this.firebaseAuth.currentUser()?.uid ?? null;
+    const profile = this._currentProfile();
+
+    if (!firestore || !currentUserUid || profile?.role !== 'child') {
+      return { ok: false, message: 'Your account is not ready to finish this change yet.' };
+    }
+
+    try {
+      await updateDoc(doc(firestore, environment.firebase.authAccountCollection, currentUserUid), {
+        'login.mustChangePassword': false,
+        updatedAt: serverTimestamp(),
+      });
+
+      this._currentProfile.set({ ...profile, mustChangePassword: false });
+
+      return { ok: true };
+    } catch {
+      // The password itself was already changed; a failed flag clear just re-prompts next sign-in.
+      return { ok: false, message: 'Your new password is saved, but we could not clear the reminder.' };
+    }
   }
 
   async refreshCurrentProfile() {
@@ -301,6 +333,7 @@ async function readAuthAccountBootstrapProfile(
       avatarUrl: personData.avatarUrl ?? undefined,
       themeColor: personData.themeColor ?? undefined,
       source: 'authAccount',
+      mustChangePassword: data.accountType === 'child' && data.login?.mustChangePassword === true,
     },
   };
 }

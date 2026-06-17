@@ -480,6 +480,9 @@
                         : 'Point this child to this household'
                     }}
                   </button>
+                  <button type="button" class="inline-button" (click)="startReset(item.child.id)">
+                    Reset sign-in
+                  </button>
                 }
               </div>
 
@@ -500,6 +503,76 @@
                   <div class="preview-share-code__value">
                     <code>{{ latestCreatedLink()?.code }}</code>
                   </div>
+                </section>
+              }
+
+              @if (resetChildId() === item.child.id) {
+                <section class="preview-login-setup">
+                  @if (resetResult(); as result) {
+                    <div class="preview-login-setup__heading">
+                      <div>
+                        <p class="eyebrow">Child sign-in · Reset done</p>
+                        <h3>{{ result.childName }}'s temporary password</h3>
+                      </div>
+                      <p class="preview-card__active-note">
+                        Give this to {{ result.childName }}. They'll sign in
+                        @if (result.username) { as <strong>{{ result.username }}</strong> } with it, then create their
+                        own password the next time they sign in.
+                      </p>
+                    </div>
+
+                    <div class="preview-share-code__value">
+                      <code>{{ result.tempPassword }}</code>
+                    </div>
+
+                    <div class="form-actions">
+                      <div class="action-row">
+                        <button type="button" class="primary-button" (click)="dismissResetResult()">Done</button>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="preview-login-setup__heading">
+                      <div>
+                        <p class="eyebrow">Child sign-in · Reset</p>
+                        <h3>Reset {{ item.child.name }}'s sign-in</h3>
+                      </div>
+                      <p class="preview-card__active-note">
+                        Confirm your own password first. We'll set a one-time password for {{ item.child.name }} and
+                        end their current sessions. They'll choose a new password the next time they sign in.
+                      </p>
+                    </div>
+
+                    <form class="child-form" (submit)="confirmReset(); $event.preventDefault()">
+                      <div class="field-grid">
+                        <label class="field field--full">
+                          <span class="field__label">Your password</span>
+                          <input
+                            type="password"
+                            autocomplete="current-password"
+                            [value]="resetPassword()"
+                            (input)="onResetPasswordInput($event)"
+                            [disabled]="resetBusy()"
+                            placeholder="Confirm your password"
+                          />
+                        </label>
+                      </div>
+
+                      @if (resetError()) {
+                        <span class="field__error field__error--banner">{{ resetError() }}</span>
+                      }
+
+                      <div class="form-actions">
+                        <div class="action-row">
+                          <button type="submit" class="primary-button" [disabled]="resetBusy()">
+                            {{ resetBusy() ? 'Resetting...' : 'Reset sign-in' }}
+                          </button>
+                          <button type="button" class="secondary-button" (click)="cancelReset()" [disabled]="resetBusy()">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  }
                 </section>
               }
 

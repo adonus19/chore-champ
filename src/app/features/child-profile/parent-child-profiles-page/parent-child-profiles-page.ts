@@ -3,6 +3,7 @@ import { FormField, form, min, minLength, pattern, required, validate } from '@a
 import { RouterLink } from '@angular/router';
 
 import { ChildProfile, ChildProfileDraft, HouseholdSwitchPolicy } from '../../../core/models/family.models';
+import { FirebaseAuthService } from '../../../core/services/firebase-auth.service';
 import {
   FirebaseChildHouseholdLinksService,
   normalizeChildLinkCode,
@@ -32,6 +33,7 @@ interface LatestChildLink {
   styleUrl: './parent-child-profiles-page.scss',
 })
 export class ParentChildProfilesPage {
+  private readonly firebaseAuth = inject(FirebaseAuthService);
   private readonly firebaseChildHouseholdLinks = inject(FirebaseChildHouseholdLinksService);
   private readonly familyData = inject(MockFamilyData);
   private readonly firebaseChildProfiles = inject(FirebaseChildProfilesService);
@@ -44,6 +46,11 @@ export class ParentChildProfilesPage {
   readonly currentHouseholdLabel = this.familyData.currentHouseholdLabel;
   readonly editingChildId = signal('');
   readonly loginChildId = signal('');
+  readonly resetChildId = signal('');
+  readonly resetPassword = signal('');
+  readonly resetBusy = signal(false);
+  readonly resetError = signal('');
+  readonly resetResult = signal<{ childName: string; tempPassword: string; username: string | null } | null>(null);
   readonly lastSavedChild = signal<
     { action: 'created' | 'updated' | 'loginEnabled'; name: string; source: 'firebase' | 'local' } | null
   >(null);
@@ -259,6 +266,84 @@ export class ParentChildProfilesPage {
     this.loginChildId.set('');
     this.loginError.set('');
     this.loginModel.set(this.createLoginFormModel());
+  }
+
+  startReset(childId: string) {
+    const child = this.familyData.childById(childId);
+
+    if (!child || !child.login?.enabled) {
+      return;
+    }
+
+    this.resetChildId.set(childId);
+    this.resetPassword.set('');
+    this.resetError.set('');
+    this.resetResult.set(null);
+  }
+
+  cancelReset() {
+    this.resetChildId.set('');
+    this.resetPassword.set('');
+    this.resetError.set('');
+    this.resetResult.set(null);
+    this.resetBusy.set(false);
+  }
+
+  onResetPasswordInput(event: Event) {
+    this.resetPassword.set((event.target as HTMLInputElement).value);
+
+    if (this.resetError()) {
+      this.resetError.set('');
+    }
+  }
+
+  async confirmReset() {
+    const child = this.familyData.childById(this.resetChildId());
+
+    if (!child) {
+      this.resetError.set('Choose a child from the roster before resetting their sign-in.');
+      return;
+    }
+
+    const password = this.resetPassword().trim();
+
+    if (!password) {
+      this.resetError.set('Enter your own password to confirm this reset.');
+      return;
+    }
+
+    this.resetBusy.set(true);
+    this.resetError.set('');
+
+    // Re-authenticate the parent before this sensitive credential action.
+    const reauth = await this.firebaseAuth.reauthenticateCurrentUser(password);
+
+    if (!reauth.ok) {
+      this.resetBusy.set(false);
+      this.resetError.set(reauth.message ?? 'We could not confirm your password. Try again.');
+      return;
+    }
+
+    const result = await this.firebaseChildProfiles.resetChildLogin(child.id);
+    this.resetBusy.set(false);
+    this.resetPassword.set('');
+
+    if (!result.ok || !result.tempPassword) {
+      this.resetError.set(result.message ?? 'The child sign-in could not be reset right now.');
+      return;
+    }
+
+    this.resetResult.set({
+      childName: child.name,
+      tempPassword: result.tempPassword,
+      username: result.username ?? child.login?.usernameDisplay ?? null,
+    });
+  }
+
+  dismissResetResult() {
+    this.resetChildId.set('');
+    this.resetResult.set(null);
+    this.resetError.set('');
   }
 
   clearSaveError() {

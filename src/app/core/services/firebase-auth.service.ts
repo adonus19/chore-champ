@@ -2,14 +2,18 @@ import { Injectable, computed, signal } from '@angular/core';
 import { FirebaseApp, deleteApp, getApp, getApps, initializeApp } from 'firebase/app';
 import {
   Auth,
+  EmailAuthProvider,
   User,
   connectAuthEmulator,
   createUserWithEmailAndPassword,
   deleteUser,
   getAuth,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
 } from 'firebase/auth';
 
 import { environment } from '../../../environments/environment';
@@ -103,6 +107,80 @@ export class FirebaseAuthService {
     try {
       const credential = await createUserWithEmailAndPassword(this.auth, email.trim(), password);
       this._currentUser.set(credential.user);
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        code: firebaseAuthErrorCode(error),
+        ok: false,
+        message: describeFirebaseAuthError(error),
+      };
+    }
+  }
+
+  async sendPasswordReset(email: string): Promise<AuthResult> {
+    if (!this.auth) {
+      return {
+        ok: false,
+        message: 'Secure password recovery is not set up for this build yet.',
+      };
+    }
+
+    try {
+      await sendPasswordResetEmail(this.auth, email.trim());
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        code: firebaseAuthErrorCode(error),
+        ok: false,
+        message: describeFirebaseAuthError(error),
+      };
+    }
+  }
+
+  async reauthenticateCurrentUser(password: string): Promise<AuthResult> {
+    const user = this.auth?.currentUser ?? null;
+
+    if (!this.auth || !user || !user.email) {
+      return {
+        ok: false,
+        message: 'Sign in again before confirming this action.',
+      };
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, password);
+      await reauthenticateWithCredential(user, credential);
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        code: firebaseAuthErrorCode(error),
+        ok: false,
+        message: describeReauthError(error),
+      };
+    }
+  }
+
+  async updateCurrentUserPassword(newPassword: string): Promise<AuthResult> {
+    const user = this.auth?.currentUser ?? null;
+
+    if (!this.auth || !user) {
+      return {
+        ok: false,
+        message: 'Sign in again before changing the password.',
+      };
+    }
+
+    try {
+      await updatePassword(user, newPassword);
 
       return {
         ok: true,
@@ -243,6 +321,23 @@ function describeFirebaseAuthError(error: unknown) {
       return "We couldn't reach the sign-in service. Check the network and try again.";
     default:
       return 'Sign-in could not be completed right now.';
+  }
+}
+
+function describeReauthError(error: unknown) {
+  const code = firebaseAuthErrorCode(error);
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/invalid-login-credentials':
+      return 'That password did not match this account. Try again.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Wait a moment and try again.';
+    case 'auth/network-request-failed':
+      return "We couldn't reach the sign-in service. Check the network and try again.";
+    default:
+      return 'We could not confirm your password right now.';
   }
 }
 

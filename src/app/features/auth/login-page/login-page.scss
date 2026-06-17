@@ -185,6 +185,19 @@
   line-height: 1.4;
 }
 
+.field__status {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.field__status--success {
+  color: #187259;
+}
+
+.field__status--warning {
+  color: #8a5a11;
+}
+
 .form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -221,6 +234,20 @@
 .secondary-link {
   color: #215d84;
   font-weight: 700;
+  text-decoration: none;
+}
+
+.secondary-link--button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.secondary-link--button:disabled {
+  cursor: default;
+  opacity: 0.65;
   text-decoration: none;
 }
 

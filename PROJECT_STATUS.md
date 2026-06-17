@@ -1,6 +1,6 @@
 # Chore Champ Progress Tracker
 
-Last updated: 2026-06-16
+Last updated: 2026-06-17
 
 ## Purpose
 
@@ -35,6 +35,10 @@ Update this file at the end of each completed implementation pass.
 - Signed-in route navigation is now lighter on mobile: non-sensitive guards no longer wait for full household hydration, route chunks preload by role, and the app warms the most-used parent and child pages in the background after sign-in.
 - The app shell now shows active-route state in its primary navigation, surfaces the current page title in the sticky header, and adds a mobile bottom tab bar plus compact back-aware top route bar for phone navigation.
 - The PWA now ships with a custom Adventure Badge icon set for manifest, favicon, and iPhone homescreen use instead of the default Angular branding.
+- Firebase-backed household data now uses root-level app/localStorage caching, lighter startup sync, and route-level lazy hydration so repeat navigation is no longer dominated by broad Firestore rereads.
+- DB-read regression testing for the new caching and lazy-hydration pass must stay a top priority until full parent/child regression testing explicitly clears it.
+- Parent sign-in now supports standard Firebase password-reset email from the public login screen, while child credential recovery remains a parent-mediated later pass.
+- Parent-guided child password reset is now live and verified end to end against the real Firebase project: a `resetChildPassword` Cloud Function (the first backend in the repo, in `functions/`) sets a temporary password and `mustChangePassword` flag after a parent re-auth, the parent child manager shows the temp password to relay, and the child is forced through a new `/child/set-password` screen on next sign-in before reaching their board. The deployed Gen 2 callable required a one-time manual IAM grant (`allUsers` → Cloud Run Invoker) before browser calls stopped failing CORS preflight with 403; this binding persists across redeploys of the same function but must be reapplied for any fresh-project deploy.
 - MVP now requires:
   - Firebase-backed shared data so parents and children can use separate devices with the same family account
 - The app currently has working MVP slices for:
@@ -134,13 +138,17 @@ Update this file at the end of each completed implementation pass.
 - Reduced mobile route-entry latency by loosening signed-in guard waits, adding background route warmup for signed-in parent and child flows, and preventing child-roster refresh helpers from re-subscribing to the active mode signal during navigation-related sync work.
 - Reworked the app shell navigation so desktop links visibly show the active route, the shell title tracks the current page instead of only the household, and mobile devices get sticky top/bottom navigation that respects safe-area padding and keeps content visible above the tab bar.
 - Replaced the default Angular app icon set with a custom Adventure Badge master plus exported PWA/iPhone/favicon sizes, and moved the manifest and HTML icon tags onto new badge-specific filenames to improve cache busting on installed devices.
+- Cut Firebase read pressure substantially by introducing household-scoped root caching, localStorage-backed hydration, one-shot snapshot loaders for slower-moving data, listener trimming at startup, and cache-aware local mutations instead of broad post-write rereads.
+- Added first-pass parent password reset from the public login page using the standard Firebase Auth email reset flow, while keeping child reset in the parent-mediated backlog.
+- Implemented parent-guided child password reset as the repo's first backend: a `resetChildPassword` Cloud Function (Admin SDK) that verifies parent credential permission, sets a temporary password, revokes child sessions, and flags `mustChangePassword`; a parent re-auth gate plus temp-password display in the child manager; and a forced `/child/set-password` screen that lets the child set their own password (client-side `updatePassword`) and clear the flag through a narrow Firestore rule.
 
 ## In Progress
 
-- No active implementation pass is open in this file right now.
+- Regression testing of the new Firebase read-reduction and caching pass is still active and should stay front-of-mind until explicitly cleared after broader parent/child testing.
 
 ## Remaining Before MVP
 
+- Regression-test the new household caching, localStorage hydration, and listener-trimming pass across parent and child flows before considering DB-read optimization complete.
 - Validate cross-device family syncing for quests, rewards, goals, and journal entries.
 - Validate cross-device family syncing for privilege rules and screen-time settings.
 - Validate cross-device family syncing for household switching and child household redirection.
@@ -194,3 +202,5 @@ Keep feature work after MVP in this single section so it stays separate from the
 - The repo head no longer needs committed Firebase env files, but the original pushed prototype commit still contains the old web config in git history until we choose to rewrite history and rotate or restrict that Firebase key.
 - Parent signup bootstrap currently writes Firestore directly from the client as a prototype step. Move that bootstrap behind a secure backend or callable function later without changing the public signup UX.
 - Child creation and child profile editing also currently write Firestore directly from the client as a prototype step. Move that child management flow behind a secure backend or callable function later without changing the parent UX.
+- Parent password reset now uses the standard Firebase Auth email flow from the public login screen and should not trigger extra Firestore reads; child credential reset still belongs in parent-mediated backend-backed work later.
+- Child password reset cannot be done client-side: a forgotten password for another account requires the Admin SDK, and the child alias is non-deliverable so reset email is out. This is now built as a `resetChildPassword` Cloud Function in `functions/` (region `us-central1`) plus the parent re-auth UI and the child forced-change screen. Remaining to go live: `cd functions && npm install && npm run build`, `npx firebase deploy --only functions`, and publish the updated Firestore rules from `FIREBASE_SETUP.md` (the new child self-clear branch on `authAccounts`). The forced-change flag clear currently trusts a narrow client write rule; moving it behind a `completeChildPasswordReset` function stays in the backend-hardening backlog.

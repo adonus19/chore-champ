@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormField, form, minLength, required } from '@angular/forms/signals';
+import { FormField, form, minLength, pattern, required } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 
 import { submitWithValidationFocus } from '../../../core/utils/submit-with-validation-focus';
@@ -36,6 +36,7 @@ export class LoginPage {
         },
   );
   readonly parentError = signal('');
+  readonly parentRecoveryMessage = signal<{ kind: 'success' | 'warning'; text: string } | null>(null);
   readonly childError = signal('');
   readonly parentDemoModel = signal({
     code: '',
@@ -64,6 +65,9 @@ export class LoginPage {
   readonly parentFirebaseForm = form(this.parentFirebaseModel, (path) => {
     required(path.email, {
       message: 'Enter the parent email for this account.',
+    });
+    pattern(path.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+      message: 'Enter a valid email address.',
     });
     required(path.password, {
       message: 'Enter the password for this account.',
@@ -118,6 +122,7 @@ export class LoginPage {
   signInParentFirebase(submitEvent?: Event) {
     submitWithValidationFocus(this.parentFirebaseForm, submitEvent, async () => {
       const { email, password } = this.parentFirebaseForm().value();
+      this.parentRecoveryMessage.set(null);
       const result = await this.firebaseAuth.signInWithEmailPassword(email, password);
 
       if (!result.ok) {
@@ -217,6 +222,7 @@ export class LoginPage {
 
   clearParentError() {
     this.parentError.set('');
+    this.parentRecoveryMessage.set(null);
   }
 
   clearChildError() {
@@ -238,5 +244,54 @@ export class LoginPage {
 
     this.childError.set(message);
     this.parentError.set('');
+  }
+
+  async sendParentPasswordReset() {
+    if (!this.firebaseEnabled) {
+      this.parentError.set('Secure password recovery is not set up for this build yet.');
+      return;
+    }
+
+    if (!this.authReady()) {
+      this.parentError.set('Sign-in is still warming up. Try password reset again in a moment.');
+      return;
+    }
+
+    this.parentError.set('');
+    this.parentRecoveryMessage.set(null);
+
+    const email = this.parentFirebaseForm().value().email.trim().toLowerCase();
+    const emailField = this.parentFirebaseForm.email();
+
+    if (!email) {
+      this.parentError.set('Enter the parent email first so we know where to send reset instructions.');
+      return;
+    }
+
+    if (emailField.errors().length > 0) {
+      this.parentError.set(emailField.errors()[0]?.message ?? 'Enter a valid email address first.');
+      return;
+    }
+
+    const result = await this.firebaseAuth.sendPasswordReset(email);
+    const genericSuccessMessage = `If a parent account exists for ${email}, reset instructions are on the way.`;
+
+    if (!result.ok) {
+      if (result.code === 'auth/user-not-found' || result.code === 'auth/invalid-credential') {
+        this.parentRecoveryMessage.set({
+          kind: 'warning',
+          text: genericSuccessMessage,
+        });
+        return;
+      }
+
+      this.parentError.set(result.message ?? 'Password reset could not be started right now.');
+      return;
+    }
+
+    this.parentRecoveryMessage.set({
+      kind: 'success',
+      text: genericSuccessMessage,
+    });
   }
 }

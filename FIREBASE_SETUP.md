@@ -660,6 +660,19 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['defaultHouseholdId', 'lastActiveHouseholdId', 'updatedAt'])
           && request.resource.data.defaultHouseholdId == currentHouseholdId()
           && request.resource.data.lastActiveHouseholdId == currentHouseholdId()
+        ) || (
+          // A signed-in child clears their own forced-password-change flag after setting a new
+          // password. They may only flip login.mustChangePassword to false; every other login field
+          // (username, internalEmailAlias, provider) must stay exactly as it was. The Admin SDK
+          // resetChildPassword function is what sets the flag to true in the first place.
+          signedIn()
+          && request.auth.uid == userId
+          && resource.data.accountType == 'child'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['login', 'updatedAt'])
+          && request.resource.data.login.mustChangePassword == false
+          && request.resource.data.login.username == resource.data.login.username
+          && request.resource.data.login.internalEmailAlias == resource.data.login.internalEmailAlias
+          && request.resource.data.login.provider == resource.data.login.provider
         );
       allow delete: if false;
     }
@@ -1145,6 +1158,59 @@ self-only for now — assigning personal items to a co-parent is a follow-up.
 38. If the child is allowed to self-switch, switch to the other household and confirm the app shell title and family data reload into that household without a sign-out.
 39. For a login-enabled child linked to the current household, open `/parent/children` and click `Point this child to this household`.
 40. Confirm the child session on another device or tab updates into that household after the auth account document changes.
+
+## Cloud Functions Backend (Child Password Reset)
+
+Child password reset is the first privileged backend operation in the repo. It cannot run from the
+client: a forgotten password for another account requires the Admin SDK, and the child alias is a
+non-deliverable address so reset email is not an option. The callable lives in `functions/`.
+
+Prerequisites:
+
+- The Firebase project must be on the **Blaze** plan (Cloud Functions requirement).
+- Functions run in region `us-central1`; the web client targets the same region via
+  `getFunctions(app, 'us-central1')`.
+
+Install and deploy:
+
+```bash
+cd functions
+npm install
+npm run build
+cd ..
+npx firebase-tools deploy --only functions
+```
+
+Use `firebase-tools` (not `firebase`, which resolves to the JS SDK and errors with "could not
+determine executable to run"), and run from the repo root where `firebase.json` lives.
+
+One-time IAM grant after the first deploy: this is a Gen 2 callable (runs on Cloud Run). Recent
+Firebase CLI versions do not auto-allow public invocation, so browser calls fail CORS preflight with
+a 403 until you grant the Cloud Run service the invoker role. The function still enforces its own
+parent-permission check; this only lets the request reach the function:
+
+- Cloud Console → Cloud Functions → select `resetChildPassword` → Permissions → Add principal
+  `allUsers` → role **Cloud Run Invoker** (`roles/run.invoker`) → Save.
+- Or with gcloud:
+  `gcloud run services add-iam-policy-binding resetchildpassword --region=us-central1 --member=allUsers --role=roles/run.invoker --project=chorechamp-9be80`
+
+The binding persists across redeploys of the same function, but must be reapplied for a fresh-project
+deploy. If the project is under an org with domain-restricted sharing, `allUsers` is blocked and a
+Gen 1 deploy (which auto-grants public invoke) is the fallback.
+
+What `resetChildPassword({ childId })` does (Admin SDK, bypasses rules):
+
+1. Verifies the caller is a signed-in parent with `canManageChildCredentials` (or `canManageChildren`)
+   in the child's household, and that the child is an active member with sign-in enabled.
+2. Generates a friendly temporary password, sets it via `auth.updateUser`, and revokes the child's
+   existing sessions with `auth.revokeRefreshTokens`.
+3. Flags `login.mustChangePassword = true` (plus `login.passwordResetAt`) on both
+   `childProfiles/{childId}` and `authAccounts/{childAuthUid}`.
+4. Returns the temp password to the authenticated parent only — it is never stored in Firestore.
+
+The child then signs in with the temp password, is routed to a "create your own password" screen,
+sets a new password client-side (they hold a fresh credential, so `updatePassword` works), and the
+narrow `authAccounts` update rule above lets them flip `login.mustChangePassword` back to false.
 
 ## Emulator Option
 

@@ -69,6 +69,38 @@ export const signedInGuard: CanActivateFn = async () => {
   return firebaseAuth.isAuthenticated() ? true : router.parseUrl('/login');
 };
 
+export const childPasswordChangeGuard: CanActivateFn = async () => {
+  const firebaseAuth = inject(FirebaseAuthService);
+  const firebaseUserProfile = inject(FirebaseUserProfileService);
+  const familyData = inject(MockFamilyData);
+  const router = inject(Router);
+
+  await firebaseAuth.waitForAuthReady();
+
+  if (!firebaseAuth.isAuthenticated()) {
+    return router.parseUrl('/login');
+  }
+
+  const profileReady = await waitForProfileReadyOrRecover(firebaseAuth, firebaseUserProfile, familyData);
+
+  if (!profileReady) {
+    return router.parseUrl('/login');
+  }
+
+  const profile = firebaseUserProfile.currentProfile();
+
+  // Only a child still flagged for a forced password change belongs on this screen.
+  if (profile?.role === 'child' && profile.mustChangePassword) {
+    return true;
+  }
+
+  if (profile?.role === 'child' && profile.childId) {
+    return router.parseUrl(familyData.childRoutePath(profile.childId));
+  }
+
+  return router.parseUrl('/login');
+};
+
 export const childViewerGuard: CanActivateFn = async (route, state) => {
   const firebaseAuth = inject(FirebaseAuthService);
   const firebaseUserProfile = inject(FirebaseUserProfileService);
@@ -92,6 +124,11 @@ export const childViewerGuard: CanActivateFn = async (route, state) => {
 
   if (profile?.source === 'authAccount' && profile.role === 'parent') {
     return true;
+  }
+
+  // A child whose password was reset by a parent must choose a new one before reaching their board.
+  if (profile?.role === 'child' && profile.mustChangePassword) {
+    return router.parseUrl('/child/set-password');
   }
 
   const householdReady = await waitForHouseholdDataReadyOrRecover(firebaseAuth, familyData);

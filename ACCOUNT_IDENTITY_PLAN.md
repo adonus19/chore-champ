@@ -117,6 +117,14 @@ This separation is what makes the following possible without major rewrites:
   - revoke existing sessions when appropriate
 - Parent should re-authenticate before sensitive credential actions.
 
+Decided 2026-06-17: the concrete child password reset design is now specified in
+`FIRESTORE_SCHEMA_PLAN.md` under "Child Password Reset Implementation Spec (MVP)". It uses the
+Admin SDK behind a `resetChildPassword` callable (the first backend in the repo) to set a
+temporary password, revoke sessions, and flag `mustChangePassword`. The child then signs in with
+the temp password and sets their own via a pure client-side `updatePassword`. Parent re-auth is
+required every time. This resolves the open question below for the reset action: re-authenticate
+on every sensitive child credential action.
+
 ## Household Switching Direction
 
 ## Guiding Principle

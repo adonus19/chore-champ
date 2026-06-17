@@ -1,6 +1,12 @@
 import { Routes } from '@angular/router';
 
-import { childViewerGuard, parentOnlyGuard, signedInGuard, signedOutOnlyGuard } from './core/guards/viewer-access.guards';
+import {
+  childPasswordChangeGuard,
+  childViewerGuard,
+  parentOnlyGuard,
+  signedInGuard,
+  signedOutOnlyGuard,
+} from './core/guards/viewer-access.guards';
 
 export const routes: Routes = [
   {
@@ -32,6 +38,15 @@ export const routes: Routes = [
     data: { preload: 'parent' },
     title: 'Chore Champ | Family Dashboard',
     pathMatch: 'full',
+  },
+  {
+    path: 'child/set-password',
+    canActivate: [childPasswordChangeGuard],
+    loadComponent: () =>
+      import('./features/auth/child-set-password-page/child-set-password-page').then(
+        (module) => module.ChildSetPasswordPage,
+      ),
+    title: 'Chore Champ | New Password',
   },
   {
     path: 'children/:childId/today',

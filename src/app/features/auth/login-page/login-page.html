@@ -69,6 +69,16 @@
             <span class="field__error">{{ parentError() }}</span>
           }
 
+          @if (parentRecoveryMessage(); as message) {
+            <span
+              class="field__status"
+              [class.field__status--success]="message.kind === 'success'"
+              [class.field__status--warning]="message.kind === 'warning'"
+            >
+              {{ message.text }}
+            </span>
+          }
+
           <div class="form-actions">
             <button
               type="submit"
@@ -76,6 +86,14 @@
               [disabled]="!authReady() || parentFirebaseForm().pending()"
             >
               Sign in
+            </button>
+            <button
+              type="button"
+              class="secondary-link secondary-link--button"
+              [disabled]="!authReady()"
+              (click)="sendParentPasswordReset()"
+            >
+              Forgot password?
             </button>
             <a routerLink="/signup/parent" class="secondary-link">Create parent account</a>
           </div>

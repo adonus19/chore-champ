@@ -13,6 +13,7 @@ import {
   serverTimestamp,
   where,
 } from 'firebase/firestore';
+import { Functions, getFunctions, httpsCallable } from 'firebase/functions';
 
 import { environment } from '../../../environments/environment';
 import { AuthBootstrapProfile, ChildProfile, ChildProfileDraft, HouseholdSwitchPolicy } from '../models/family.models';
@@ -23,6 +24,8 @@ import { FirebaseUserProfileService } from './firebase-user-profile.service';
 const HOUSEHOLDS_COLLECTION = 'households';
 const MEMBERS_SUBCOLLECTION = 'members';
 const CHILD_STATE_SUBCOLLECTION = 'childState';
+// Must match the region the resetChildPassword Cloud Function is deployed to (functions/src/index.ts).
+const FUNCTIONS_REGION = 'us-central1';
 
 interface ChildProfileDocument {
   childPersonId?: string;
@@ -37,6 +40,7 @@ interface ChildProfileDocument {
     authUid?: string | null;
     usernameNormalized?: string | null;
     usernameDisplay?: string | null;
+    mustChangePassword?: boolean;
   };
 }
 
@@ -83,6 +87,16 @@ interface ChildLoginDraft {
   username: string;
 }
 
+interface ChildPasswordResetResult extends HouseholdChildMutationResult {
+  tempPassword?: string;
+  username?: string | null;
+}
+
+interface ResetChildPasswordCallableResponse {
+  tempPassword?: string;
+  username?: string | null;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -91,6 +105,7 @@ export class FirebaseChildProfilesService {
   private readonly firebaseUserProfile = inject(FirebaseUserProfileService);
   private readonly app = createFirebaseApp();
   private readonly firestore = this.app ? createFirestore(this.app) : null;
+  private readonly functions: Functions | null = this.app ? getFunctions(this.app, FUNCTIONS_REGION) : null;
 
   async loadAccessibleChildren(profile: AuthBootstrapProfile, fallbackModeId: string): Promise<ChildProfile[]> {
     if (profile.role === 'child') {
@@ -541,6 +556,52 @@ export class FirebaseChildProfilesService {
     }
   }
 
+  async resetChildLogin(childId: string): Promise<ChildPasswordResetResult> {
+    const functions = this.functions;
+    const viewerProfile = this.firebaseUserProfile.currentProfile();
+
+    if (!functions) {
+      return {
+        ok: false,
+        message: 'Child sign-in reset is not ready for this build yet.',
+      };
+    }
+
+    if (!viewerProfile || viewerProfile.role !== 'parent' || !viewerProfile.householdId) {
+      return {
+        ok: false,
+        message: 'The signed-in parent household context is not ready yet. Refresh the session and try again.',
+      };
+    }
+
+    try {
+      const callable = httpsCallable<
+        { childId: string; householdId: string },
+        ResetChildPasswordCallableResponse
+      >(functions, 'resetChildPassword');
+      const response = await callable({ childId, householdId: viewerProfile.householdId });
+      const tempPassword = response.data?.tempPassword?.trim();
+
+      if (!tempPassword) {
+        return {
+          ok: false,
+          message: 'The reset finished but no temporary password came back. Try again.',
+        };
+      }
+
+      return {
+        ok: true,
+        tempPassword,
+        username: response.data?.username ?? null,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: describeChildPasswordResetError(error),
+      };
+    }
+  }
+
   private async loadChildSelfProfile(profile: AuthBootstrapProfile, fallbackModeId: string): Promise<ChildProfile[]> {
     const firestore = this.firestore;
     const householdId = profile.householdId;
@@ -613,6 +674,7 @@ export class FirebaseChildProfilesService {
         usernameNormalized: login?.usernameNormalized?.trim() || undefined,
         usernameDisplay: login?.usernameDisplay?.trim() || undefined,
         householdSwitchPolicy: membershipData?.childPolicies?.householdSwitchPolicy ?? 'parentOnly',
+        mustChangePassword: login?.mustChangePassword === true,
       },
     };
   }
@@ -751,5 +813,30 @@ function describeChildLoginEnableError(error: unknown) {
       return 'The hidden child sign-in email alias is already in use. Refresh and try again.';
     default:
       return 'The child sign-in account could not be enabled right now.';
+  }
+}
+
+// Maps Cloud Functions callable error codes (functions/v2/https HttpsError) to parent-friendly copy.
+function describeChildPasswordResetError(error: unknown) {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+
+  switch (code) {
+    case 'functions/unauthenticated':
+    case 'unauthenticated':
+      return 'Your session expired. Sign in again and retry the reset.';
+    case 'functions/permission-denied':
+    case 'permission-denied':
+      return 'This parent account cannot reset that child sign-in.';
+    case 'functions/failed-precondition':
+    case 'failed-precondition':
+      return 'This child does not have sign-in enabled, so there is nothing to reset.';
+    case 'functions/not-found':
+    case 'not-found':
+      return 'That child is not an active member of this household.';
+    case 'functions/unavailable':
+    case 'unavailable':
+      return "We couldn't reach the reset service. Check the network and try again.";
+    default:
+      return 'The child sign-in could not be reset right now.';
   }
 }
